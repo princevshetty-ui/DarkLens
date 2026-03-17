@@ -1,0 +1,80 @@
+{
+  "1": {
+    "name": "False Urgency",
+    "description": "Creating a false sense of urgency through countdowns or scarcity claims",
+    "legal_reference": "CCPA Dark Pattern Guidelines 2023, Category 1",
+    "example": "Fake countdown timer, 'Only 2 left' when stock is plentiful"
+  },
+  "2": {
+    "name": "Basket Sneaking",
+    "description": "Adding items to cart or checkout without user consent",
+    "legal_reference": "CCPA Dark Pattern Guidelines 2023, Category 2",
+    "example": "Auto-added warranty or donation at checkout"
+  },
+  "3": {
+    "name": "Confirm Shaming",
+    "description": "Using guilt or shame to influence user decisions",
+    "legal_reference": "CCPA Dark Pattern Guidelines 2023, Category 3",
+    "example": "'No, I don't want to save money' as opt-out text"
+  },
+  "4": {
+    "name": "Interface Interference",
+    "description": "Manipulating UI to highlight desired actions and obscure alternatives",
+    "legal_reference": "CCPA Dark Pattern Guidelines 2023, Category 4",
+    "example": "Large bright 'Accept' button vs tiny grey 'Decline' link"
+  },
+  "5": {
+    "name": "Forced Action",
+    "description": "Pre-selecting options or requiring unrelated actions to proceed",
+    "legal_reference": "CCPA Dark Pattern Guidelines 2023, Category 5",
+    "example": "Pre-checked insurance checkbox during flight booking"
+  },
+  "6": {
+    "name": "Drip Pricing",
+    "description": "Revealing additional charges incrementally through the purchase flow",
+    "legal_reference": "CCPA Dark Pattern Guidelines 2023, Category 6",
+    "example": "Convenience fee appearing only at payment page"
+  },
+  "7": {
+    "name": "Disguised Advertisement",
+    "description": "Advertisements designed to look like organic content",
+    "legal_reference": "CCPA Dark Pattern Guidelines 2023, Category 7",
+    "example": "Sponsored product styled identically to search results"
+  },
+  "8": {
+    "name": "Nagging",
+    "description": "Persistent, repeated interruptions to pressure users",
+    "legal_reference": "CCPA Dark Pattern Guidelines 2023, Category 8",
+    "example": "Repeated pop-ups asking to enable notifications"
+  },
+  "9": {
+    "name": "Subscription Trap",
+    "description": "Making it easy to subscribe but difficult to cancel",
+    "legal_reference": "CCPA Dark Pattern Guidelines 2023, Category 9",
+    "example": "One-click subscribe, 5-step cancellation process"
+  },
+  "10": {
+    "name": "Bait & Switch",
+    "description": "Advertising one offer but delivering a different one",
+    "legal_reference": "CCPA Dark Pattern Guidelines 2023, Category 10",
+    "example": "'Free cancellation' on listing, fee charged at checkout"
+  },
+  "11": {
+    "name": "Trick Question",
+    "description": "Confusing language designed to mislead users",
+    "legal_reference": "CCPA Dark Pattern Guidelines 2023, Category 11",
+    "example": "Double negative opt-out phrasing"
+  },
+  "12": {
+    "name": "Hidden Costs",
+    "description": "Charges not revealed until final payment stage",
+    "legal_reference": "CCPA Dark Pattern Guidelines 2023, Category 12",
+    "example": "Service tax shown only on payment page"
+  },
+  "13": {
+    "name": "Rogue Malware",
+    "description": "Tricking users into downloading unwanted software",
+    "legal_reference": "CCPA Dark Pattern Guidelines 2023, Category 13",
+    "example": "Download button that installs unrelated toolbar"
+  }
+}
