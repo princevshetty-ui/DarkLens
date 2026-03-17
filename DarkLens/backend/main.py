@@ -27,6 +27,16 @@ app.include_router(health.router)
 app.include_router(analyze.router)
 
 
+@app.get("/")
+async def root():
+    return {
+        "service": "DarkLens API",
+        "status": "running",
+        "docs": "/docs",
+        "health": "/api/health"
+    }
+
+
 @app.on_event("startup")
 async def startup_check():
     if not GEMINI_API_KEY:
