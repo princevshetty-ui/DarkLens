@@ -1,6 +1,6 @@
 
 
-# Two Documents: README.md + Judge Defense Script
+# README.md
 
 ---
 
