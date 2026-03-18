@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import analyze, health
-from config import GEMINI_API_KEY
+from config import GEMINI_API_KEY, UVICORN_TIMEOUT_KEEP_ALIVE
 
 app = FastAPI(
     title="DarkLens API",
@@ -44,3 +44,15 @@ async def startup_check():
     else:
         print(f"✅ Gemini API key loaded")
     print("🔍 DarkLens API running — docs at http://localhost:8000/docs")
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        timeout_keep_alive=UVICORN_TIMEOUT_KEEP_ALIVE,
+    )

@@ -5,11 +5,17 @@ import re
 import os
 import sys
 import asyncio
+from io import BytesIO
+from PIL import Image, UnidentifiedImageError
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import GEMINI_API_KEY, GEMINI_MODEL
 
 genai.configure(api_key=GEMINI_API_KEY)
+
+MAX_IMAGE_DIMENSION = 1800
+TARGET_IMAGE_BYTES = 1_500_000
+MIN_JPEG_QUALITY = 55
 
 ANALYSIS_PROMPT = """You are DarkLens, an AI forensic auditor that detects dark patterns on Indian digital platforms.
 
@@ -236,15 +242,74 @@ def fallback_response():
     }
 
 
+def preprocess_image(image_bytes: bytes, mime_type: str = "image/png"):
+    """
+    Resize and compress images to reduce Gemini latency/timeouts.
+    Returns: (processed_bytes, processed_mime_type)
+    """
+    try:
+        image = Image.open(BytesIO(image_bytes))
+    except (UnidentifiedImageError, OSError):
+        print("[DarkLens] Image preprocessing skipped: could not decode image")
+        return image_bytes, mime_type
+
+    original_size = len(image_bytes)
+    width, height = image.size
+
+    # Resize oversized screenshots while preserving aspect ratio.
+    max_side = max(width, height)
+    if max_side > MAX_IMAGE_DIMENSION:
+        scale = MAX_IMAGE_DIMENSION / float(max_side)
+        new_size = (max(1, int(width * scale)), max(1, int(height * scale)))
+        image = image.resize(new_size, Image.Resampling.LANCZOS)
+
+    # Flatten alpha and normalize to RGB for efficient JPEG encoding.
+    if image.mode in ("RGBA", "LA"):
+        background = Image.new("RGB", image.size, (255, 255, 255))
+        alpha = image.getchannel("A")
+        background.paste(image.convert("RGB"), mask=alpha)
+        image = background
+    elif image.mode == "P":
+        image = image.convert("RGB")
+    elif image.mode != "RGB":
+        image = image.convert("RGB")
+
+    best = None
+    for quality in (88, 80, 72, 65, MIN_JPEG_QUALITY):
+        buffer = BytesIO()
+        image.save(buffer, format="JPEG", optimize=True, quality=quality)
+        candidate = buffer.getvalue()
+        if best is None or len(candidate) < len(best):
+            best = candidate
+        if len(candidate) <= TARGET_IMAGE_BYTES:
+            best = candidate
+            break
+
+    if best is None:
+        return image_bytes, mime_type
+
+    processed_size = len(best)
+    if processed_size < original_size:
+        print(
+            f"[DarkLens] Image optimized: {original_size / 1024:.1f}KB -> "
+            f"{processed_size / 1024:.1f}KB | size={image.size[0]}x{image.size[1]}"
+        )
+        return best, "image/jpeg"
+
+    return image_bytes, mime_type
+
+
 async def analyze_screenshot(image_bytes: bytes, mime_type: str = "image/png") -> dict:
     """
     Core analysis function.
     Sends image to Gemini, parses response, validates data.
     Retries once on failure. Never crashes.
     """
+    processed_bytes, processed_mime_type = preprocess_image(image_bytes, mime_type)
+
     image_data = {
-        "mime_type": mime_type,
-        "data": base64.b64encode(image_bytes).decode("utf-8")
+        "mime_type": processed_mime_type,
+        "data": base64.b64encode(processed_bytes).decode("utf-8")
     }
 
     for attempt in range(2):
