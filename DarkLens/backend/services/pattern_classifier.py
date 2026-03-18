@@ -2,139 +2,263 @@ import json
 import os
 import re
 
-# Load our CCPA legal taxonomy
-TAXONOMY_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "ccpa_taxonomy.json")
-with open(TAXONOMY_PATH, "r") as f:
-    CCPA_TAXONOMY = json.load(f)
+# ── Load CCPA Taxonomy ──
 
-# How much each category contributes to the overall score
-# Financial harm categories (Forced Action, Drip Pricing, Bait & Switch) 
-# are weighted highest
+TAXONOMY_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "data", "ccpa_taxonomy.json"
+)
+
+try:
+    with open(TAXONOMY_PATH, "r") as f:
+        CCPA_TAXONOMY = json.load(f)
+    print(f"[DarkLens] Loaded CCPA taxonomy: {len(CCPA_TAXONOMY)} categories")
+except Exception as e:
+    print(f"[DarkLens] WARNING: Could not load taxonomy: {e}")
+    CCPA_TAXONOMY = {}
+
+# ── Category Weights ──
+# Higher weight = more impact on final score
+# Financial harm categories weighted highest
+
 CATEGORY_WEIGHTS = {
-    1: 0.6,   # False Urgency
-    2: 1.0,   # Basket Sneaking
-    3: 0.4,   # Confirm Shaming
-    4: 0.7,   # Interface Interference
-    5: 1.0,   # Forced Action (highest — direct financial harm)
-    6: 0.9,   # Drip Pricing
-    7: 0.3,   # Disguised Advertisement
-    8: 0.3,   # Nagging
-    9: 0.8,   # Subscription Trap
-    10: 1.0,  # Bait & Switch
-    11: 0.5,  # Trick Question
-    12: 0.8,  # Hidden Costs
-    13: 0.9   # Rogue Malware
+    1: 0.6,    # False Urgency
+    2: 1.0,    # Basket Sneaking
+    3: 0.4,    # Confirm Shaming
+    4: 0.7,    # Interface Interference
+    5: 1.0,    # Forced Action
+    6: 0.9,    # Drip Pricing
+    7: 0.3,    # Disguised Advertisement
+    8: 0.3,    # Nagging
+    9: 0.8,    # Subscription Trap
+    10: 1.0,   # Bait & Switch
+    11: 0.5,   # Trick Question
+    12: 0.8,   # Hidden Costs
+    13: 0.9,   # Rogue Malware
 }
+
+
+def safe_int(value, default=0):
+    """Safely convert to int without crashing."""
+    if value is None:
+        return default
+    try:
+        return int(float(str(value)))
+    except (ValueError, TypeError):
+        return default
 
 
 def enrich_patterns(raw_patterns: list) -> list:
     """
-    Takes Gemini's raw pattern detections and adds:
-    - Unique pattern IDs (dp_001, dp_002, etc.)
-    - Legal references from our CCPA taxonomy
-    - Validated severity values
+    Takes patterns from Gemini (via vision_analyzer) and:
+    1. Adds unique IDs (dp_001, dp_002, ...)
+    2. Adds legal references from CCPA taxonomy
+    3. Validates all fields
+    
+    NEVER drops a pattern — fixes it instead.
     """
+    if not raw_patterns:
+        return []
+
+    if not isinstance(raw_patterns, list):
+        print(f"[DarkLens] WARNING: patterns is not a list: {type(raw_patterns)}")
+        return []
+
     enriched = []
+
     for i, pattern in enumerate(raw_patterns):
-        cat_id = pattern.get("ccpa_category_id", 0)
+        if not isinstance(pattern, dict):
+            print(f"[DarkLens] WARNING: pattern {i} is not a dict, skipping")
+            continue
+
+        # Get category ID safely
+        cat_id = safe_int(pattern.get("ccpa_category_id"), 0)
         taxonomy_entry = CCPA_TAXONOMY.get(str(cat_id), {})
 
-        # Validate severity — must be exactly one of these three
-        severity = pattern.get("severity", "CAUTION")
-        if severity not in ["FAIR", "CAUTION", "VIOLATION"]:
+        # Validate severity
+        severity = str(pattern.get("severity", "CAUTION") or "CAUTION").upper().strip()
+        if severity not in ("FAIR", "CAUTION", "VIOLATION"):
             severity = "CAUTION"
 
-        # Validate score range
-        severity_score = pattern.get("severity_score", 3)
-        severity_score = max(0, min(5, int(severity_score)))
+        # Validate severity_score
+        severity_score = safe_int(pattern.get("severity_score"), 3)
+        severity_score = max(0, min(5, severity_score))
 
-        # Build clean evidence object
-        raw_evidence = pattern.get("evidence", {})
+        # Validate confidence
+        confidence = str(pattern.get("confidence", "medium") or "medium").lower().strip()
+        if confidence not in ("high", "medium", "low"):
+            confidence = "medium"
+
+        # Build evidence safely
+        raw_evidence = pattern.get("evidence")
+        if not isinstance(raw_evidence, dict):
+            raw_evidence = {}
+
         evidence = {
-            "element_type": raw_evidence.get("element_type", "unknown"),
-            "content": raw_evidence.get("content", ""),
-            "visual_prominence": raw_evidence.get("visual_prominence", "medium"),
-            "position": raw_evidence.get("position", "unknown")
+            "element_type": str(raw_evidence.get("element_type", "unknown") or "unknown"),
+            "content": str(raw_evidence.get("content", "") or ""),
+            "visual_prominence": str(raw_evidence.get("visual_prominence", "medium") or "medium"),
+            "position": str(raw_evidence.get("position", "unknown") or "unknown"),
         }
 
-        enriched.append({
+        enriched_pattern = {
             "pattern_id": f"dp_{str(i + 1).zfill(3)}",
             "ccpa_category_id": cat_id,
-            "ccpa_category_name": pattern.get("ccpa_category_name",
-                                              taxonomy_entry.get("name", "Unknown")),
-            "ccpa_legal_reference": taxonomy_entry.get("legal_reference", ""),
+            "ccpa_category_name": str(
+                pattern.get("ccpa_category_name")
+                or taxonomy_entry.get("name", "Unknown")
+                or "Unknown"
+            ),
+            "ccpa_legal_reference": str(taxonomy_entry.get("legal_reference", "")),
             "severity": severity,
             "severity_score": severity_score,
-            "title": pattern.get("title", "Unnamed Pattern"),
-            "description": pattern.get("description", ""),
-            "user_impact": pattern.get("user_impact", ""),
+            "title": str(pattern.get("title", "Detected Pattern") or "Detected Pattern"),
+            "description": str(pattern.get("description", "") or ""),
+            "user_impact": str(pattern.get("user_impact", "") or ""),
             "evidence": evidence,
-            "confidence": pattern.get("confidence", "medium")
-        })
+            "confidence": confidence,
+        }
 
+        enriched.append(enriched_pattern)
+
+    print(f"[DarkLens] Enriched {len(enriched)} patterns")
     return enriched
 
 
 def compute_score(patterns: list, hidden_costs: list) -> dict:
     """
-    Computes a 0-100 Manipulation Score based on:
-    - Number of patterns detected
-    - Severity of each pattern
-    - Category weight (financial harm patterns count more)
-    - Number of hidden costs
+    Computes manipulation score (0-100) from detected patterns.
     
-    Returns score + letter grade + color for the UI
+    Algorithm:
+    1. Each pattern contributes: severity_score × category_weight
+    2. Hidden costs add bonus points
+    3. Normalize to 0-100 scale
+    4. Assign letter grade
+    
+    Returns dict with score, grade, label, color, overcharge, categories.
     """
+
+    # Handle empty/None inputs
     if not patterns:
+        patterns = []
+    if not hidden_costs:
+        hidden_costs = []
+
+    # No patterns = clean page
+    if len(patterns) == 0:
+        total_overcharge = calculate_overcharge(hidden_costs)
         return {
             "manipulation_score": 0,
             "grade": "A",
             "grade_label": "Clean — No manipulation detected",
             "grade_color": "#22c55e",
-            "estimated_overcharge": "₹0",
-            "categories_violated": []
+            "estimated_overcharge": f"₹{total_overcharge}" if total_overcharge > 0 else "₹0",
+            "categories_violated": [],
         }
 
-    # Calculate weighted score
-    raw_score = 0
+    # ── Calculate weighted score ──
+    raw_score = 0.0
+
     for pattern in patterns:
-        cat_id = pattern.get("ccpa_category_id", 0)
-        severity = pattern.get("severity_score", 3)
+        cat_id = safe_int(pattern.get("ccpa_category_id"), 0)
+        severity = safe_int(pattern.get("severity_score"), 3)
         weight = CATEGORY_WEIGHTS.get(cat_id, 0.5)
-        raw_score += severity * weight
 
-    # Hidden costs add to the score
-    raw_score += len(hidden_costs or []) * 2
+        contribution = severity * weight
+        raw_score += contribution
 
-    # Normalize to 0-100 scale
-    max_possible = 13 * 5 * 1.0
-    normalized = min(100, int((raw_score / max_possible) * 100 * 3.5))
+        # Debug log
+        print(f"[DarkLens Score] Pattern '{pattern.get('title', '?')}': "
+              f"cat={cat_id}, severity={severity}, weight={weight}, "
+              f"contribution={contribution:.2f}")
 
-    # Assign grade
-    if normalized < 20:
-        grade, label, color = "A", "Clean — Transparent interface", "#22c55e"
-    elif normalized < 40:
-        grade, label, color = "B", "Mild — Minor design concerns", "#84cc16"
-    elif normalized < 60:
-        grade, label, color = "C", "Moderate — Multiple manipulation patterns", "#eab308"
-    elif normalized < 80:
-        grade, label, color = "D", "Severe — Aggressive dark patterns", "#f97316"
+    # Hidden costs bonus
+    cost_count = len(hidden_costs)
+    if cost_count > 0:
+        raw_score += cost_count * 2.0
+        print(f"[DarkLens Score] Hidden costs bonus: {cost_count} × 2 = {cost_count * 2}")
+
+    print(f"[DarkLens Score] Raw score: {raw_score:.2f}")
+
+    # ── Normalize to 0-100 ──
+    # Scale factor ensures realistic scores:
+    # - 1 pattern with severity 3 and weight 0.5 = ~8/100
+    # - 3 patterns with mixed severity = ~35-50/100
+    # - 5+ patterns with high severity = 70-100/100
+
+    max_theoretical = 13 * 5 * 1.0  # 65 (all categories, max severity, max weight)
+    normalized = (raw_score / max_theoretical) * 100.0 * 3.0
+
+    # Clamp to 0-100
+    normalized = max(0, min(100, normalized))
+    final_score = round(normalized)
+
+    print(f"[DarkLens Score] Normalized: {normalized:.2f}, Final: {final_score}")
+
+    # ── Assign grade ──
+    if final_score < 20:
+        grade = "A"
+        label = "Clean — Transparent interface"
+        color = "#22c55e"
+    elif final_score < 40:
+        grade = "B"
+        label = "Mild — Minor design concerns"
+        color = "#84cc16"
+    elif final_score < 60:
+        grade = "C"
+        label = "Moderate — Multiple manipulation patterns"
+        color = "#eab308"
+    elif final_score < 80:
+        grade = "D"
+        label = "Severe — Aggressive dark patterns"
+        color = "#f97316"
     else:
-        grade, label, color = "F", "Critical — Systematic manipulation", "#ef4444"
+        grade = "F"
+        label = "Critical — Systematic manipulation"
+        color = "#ef4444"
 
-    # Calculate total hidden charges in rupees
-    total_overcharge = 0
-    for cost in (hidden_costs or []):
-        amount_str = cost.get("amount", "₹0")
-        digits = re.findall(r'\d+', str(amount_str))
-        if digits:
-            total_overcharge += int(digits[0])
+    # ── Calculate overcharge ──
+    total_overcharge = calculate_overcharge(hidden_costs)
 
-    return {
-        "manipulation_score": normalized,
+    # ── Get violated categories ──
+    categories = []
+    for p in patterns:
+        cid = safe_int(p.get("ccpa_category_id"), 0)
+        if cid > 0 and cid not in categories:
+            categories.append(cid)
+
+    result = {
+        "manipulation_score": final_score,
         "grade": grade,
         "grade_label": label,
         "grade_color": color,
-        "estimated_overcharge": f"₹{total_overcharge}" if total_overcharge else "₹0",
-        "categories_violated": list(set(p["ccpa_category_id"] for p in patterns))
+        "estimated_overcharge": f"₹{total_overcharge}" if total_overcharge > 0 else "₹0",
+        "categories_violated": categories,
     }
+
+    print(f"[DarkLens Score] Final result: score={final_score}, grade={grade}, "
+          f"overcharge=₹{total_overcharge}, categories={categories}")
+
+    return result
+
+
+def calculate_overcharge(hidden_costs):
+    """Extract total rupee amount from hidden costs list."""
+    total = 0
+    if not hidden_costs:
+        return 0
+
+    for cost in hidden_costs:
+        if not isinstance(cost, dict):
+            continue
+
+        amount_str = str(cost.get("amount", "0") or "0")
+
+        # Extract digits from strings like "₹299", "Rs. 35", "150", etc.
+        digits = re.findall(r'\d+', amount_str)
+        if digits:
+            try:
+                total += int(digits[0])
+            except (ValueError, IndexError):
+                pass
+
+    return total

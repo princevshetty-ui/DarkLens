@@ -1,8 +1,12 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  content: ["./index.html", "./src/**/*"],
   theme: {
     extend: {
+      fontFamily: {
+        sora: ["Sora", "Inter", "system-ui", "sans-serif"],
+        inter: ["Inter", "system-ui", "sans-serif"],
+      },
       colors: {
         dark: {
           900: "#0a0a0f",

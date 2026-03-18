@@ -180,7 +180,7 @@ export function useAnalysis() {
   const [error, setError] = useState(null);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
 
-  const analyzeImages = useCallback(async (files) => {
+  const analyzeImages = useCallback(async (files, onImageResponse) => {
     if (!files || files.length === 0) return;
 
     setStatus("scanning");
@@ -203,7 +203,15 @@ export function useAnalysis() {
           timeout: 45000,
         });
 
-        allResults.push(response.data);
+        onImageResponse?.(response.data, i);
+
+        const payload = response.data;
+        const normalized =
+          payload && typeof payload === "object" && payload.data && typeof payload.data === "object"
+            ? payload.data
+            : payload;
+
+        allResults.push(normalized);
       }
 
       // Merge all results into one unified result
@@ -217,10 +225,12 @@ export function useAnalysis() {
       }
 
       setStatus("complete");
+      return merged;
     } catch (err) {
       const msg = err.response?.data?.detail || err.message || "Analysis failed. Please try again.";
       setError(msg);
       setStatus("error");
+      throw err;
     }
   }, []);
 

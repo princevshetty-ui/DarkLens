@@ -11,39 +11,39 @@ from config import GEMINI_API_KEY, GEMINI_MODEL
 
 genai.configure(api_key=GEMINI_API_KEY)
 
-# ═══════════════════════════════════════════════════════
-# THE PROMPT — Strict JSON enforcement
-# ═══════════════════════════════════════════════════════
-
 ANALYSIS_PROMPT = """You are DarkLens, an AI forensic auditor that detects dark patterns on Indian digital platforms.
 
-CRITICAL OUTPUT RULES:
-- Return ONLY a single JSON object
-- Do NOT include any text before or after the JSON
-- Do NOT wrap the JSON in markdown code blocks
-- Do NOT say "Here is the result" or any other text
-- Do NOT include backticks, triple backticks, or the word "json"
-- Your entire response must start with { and end with }
-- If you cannot analyze the image, still return valid JSON with empty arrays
+OUTPUT RULES:
+- Return ONLY a JSON object
+- Start with { and end with }
+- No markdown, no backticks, no explanation text
 
-Analyze this screenshot and identify ALL dark patterns present.
+DETECTION RULES:
 
-Classify each using India's CCPA Dark Pattern Guidelines 2023:
-1. False Urgency — fake timers, "only X left" claims
-2. Basket Sneaking — items added without consent
-3. Confirm Shaming — guilt language on opt-out buttons
-4. Forced Action — pre-selected paid options users must deselect
-5. Nagging — persistent disruptive requests
-6. Subscription Trap — easy signup, hidden/difficult cancellation
-7. Interface Interference — design tricks favoring paid options
-8. Bait & Switch — offer differs from what was advertised
-9. Drip Pricing — fees revealed incrementally through checkout
-10. Disguised Advertisement — ads styled as organic content
-11. Trick Question — confusing consent wording
-12. Hidden Costs — charges shown only at final payment stage
-13. Rogue Malware — unauthorized downloads
+Checkbox/Radio accuracy:
+- A checkbox is pre-selected ONLY if you see a visible checkmark or filled state
+- Empty radio buttons where neither is selected means the user has a free choice — flag as CAUTION at most, not VIOLATION
+- If uncertain about selection state, use CAUTION not VIOLATION
 
-Return this EXACT JSON structure:
+What to detect:
+- Pre-selected checkboxes that add cost (if visually checked) → VIOLATION severity 5
+- Fees appearing only at checkout → VIOLATION severity 4
+- Items auto-added to cart → VIOLATION severity 5
+- Conditional discounts tied to buying add-ons → CAUTION severity 3
+- Social proof/testimonials pushing paid options → CAUTION severity 2
+- Urgency timers or scarcity claims → CAUTION severity 3
+- Asymmetric button design (big Accept vs tiny Skip) → CAUTION severity 3
+- Guilt language on decline buttons → CAUTION severity 3
+- Position bias (paid option listed first) → CAUTION severity 1
+- Prominent upsell banners in checkout flow → CAUTION severity 2
+
+Classify using India's CCPA Dark Pattern Guidelines 2023:
+1. False Urgency  2. Basket Sneaking  3. Confirm Shaming  4. Forced Action
+5. Nagging  6. Subscription Trap  7. Interface Interference  8. Bait & Switch
+9. Drip Pricing  10. Disguised Advertisement  11. Trick Question
+12. Hidden Costs  13. Rogue Malware
+
+Return this JSON structure:
 
 {
   "platform_detected": "name or Unknown",
@@ -54,86 +54,69 @@ Return this EXACT JSON structure:
       "ccpa_category_name": "Forced Action",
       "severity": "VIOLATION",
       "severity_score": 5,
-      "title": "Short descriptive headline",
-      "description": "2-3 sentence explanation of the dark pattern",
-      "user_impact": "Direct impact on the user, mention rupee amounts if applicable",
+      "title": "Short headline",
+      "description": "2-3 sentence explanation",
+      "user_impact": "Direct user impact, mention rupees if applicable",
       "evidence": {
-        "element_type": "checkbox | button | text | price | timer | banner | link",
-        "content": "exact text content of the element",
-        "visual_prominence": "high | medium | low | hidden",
-        "position": "where on the page"
+        "element_type": "checkbox",
+        "content": "exact text of element",
+        "visual_prominence": "high",
+        "position": "where on page"
       },
-      "confidence": "high | medium | low"
+      "confidence": "high"
     }
   ],
   "hidden_costs": [
     {
-      "label": "name of charge",
+      "label": "charge name",
       "amount": "₹299",
       "was_disclosed_upfront": false,
-      "disclosure_quality": "prominent | subtle | hidden | only_at_checkout"
+      "disclosure_quality": "hidden"
     }
   ],
-  "summary": "2-3 sentence plain-English summary of all findings"
+  "summary": "2-3 sentence summary"
 }
 
-ACCURACY RULES:
-- severity must be exactly one of: FAIR, CAUTION, VIOLATION
-- severity_score must be an integer from 0 to 5
-- Do NOT claim a checkbox is pre-selected unless you clearly see a filled/checked state
-- Radio buttons where NEITHER option is selected are NOT dark patterns
-- An add-on requiring the user to click "+ADD" is a legitimate upsell, NOT forced action
-- Conditional discounts tied to purchasing add-ons ARE a form of nudging — flag as CAUTION
-- Social proof testimonials in insurance sections ARE nudging — flag as CAUTION
-- Urgency text without visible timers should be CAUTION severity 2, not VIOLATION
-- If the page appears clean and transparent, return empty arrays and say so in summary
-- Credibility matters more than finding problems — do NOT inflate findings
-- confidence must be "high" only when evidence is unambiguous"""
+IMPORTANT:
+- severity must be exactly: FAIR, CAUTION, or VIOLATION
+- severity_score must be a number 0 to 5
+- Always try to find at least subtle patterns like nudging, upsells, or position bias
+- If the page is genuinely clean, return empty arrays — but look carefully first
+- It is better to find real CAUTION-level patterns than to miss them"""
 
 
-# ═══════════════════════════════════════════════════════
-# JSON EXTRACTION — Multiple fallback strategies
-# ═══════════════════════════════════════════════════════
-
-def extract_json_from_text(text):
-    """
-    Attempts to extract valid JSON from Gemini's response using 
-    multiple strategies. Returns parsed dict or None.
-    """
+def extract_json(text):
+    """Extract JSON from Gemini response using multiple strategies."""
     if not text or not text.strip():
         return None
 
     cleaned = text.strip()
 
-    # Strategy 1: Direct parse (ideal case)
+    # Strategy 1: Direct parse
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError:
         pass
 
-    # Strategy 2: Remove markdown code block wrappers
-    # Handles: ```json\n{...}\n``` or ```{...}```
-    markdown_pattern = r'```(?:json)?\s*\n?([\s\S]*?)\n?```'
-    markdown_match = re.search(markdown_pattern, cleaned)
-    if markdown_match:
+    # Strategy 2: Remove markdown wrappers
+    md = re.search(r'```(?:json)?\s*\n?([\s\S]*?)\n?```', cleaned)
+    if md:
         try:
-            return json.loads(markdown_match.group(1).strip())
+            return json.loads(md.group(1).strip())
         except json.JSONDecodeError:
             pass
 
     # Strategy 3: Extract between first { and last }
-    first_brace = cleaned.find('{')
-    last_brace = cleaned.rfind('}')
-    if first_brace != -1 and last_brace > first_brace:
+    first = cleaned.find('{')
+    last = cleaned.rfind('}')
+    if first != -1 and last > first:
         try:
-            return json.loads(cleaned[first_brace:last_brace + 1])
+            return json.loads(cleaned[first:last + 1])
         except json.JSONDecodeError:
             pass
 
-    # Strategy 4: Try to fix common JSON issues
-    # Remove trailing commas before } or ]
-    if first_brace != -1 and last_brace > first_brace:
-        attempt = cleaned[first_brace:last_brace + 1]
+        # Strategy 4: Fix trailing commas
+        attempt = cleaned[first:last + 1]
         attempt = re.sub(r',\s*}', '}', attempt)
         attempt = re.sub(r',\s*]', ']', attempt)
         try:
@@ -144,93 +127,106 @@ def extract_json_from_text(text):
     return None
 
 
-# ═══════════════════════════════════════════════════════
-# VALIDATION — Ensure response structure is correct
-# ═══════════════════════════════════════════════════════
+def safe_int(value, default=0):
+    """Safely convert any value to int."""
+    if value is None:
+        return default
+    try:
+        return int(float(str(value)))
+    except (ValueError, TypeError):
+        return default
 
-def validate_and_clean(data):
+
+def clean_response(data):
     """
-    Ensures the parsed JSON has all required fields with correct types.
-    Fixes common issues without crashing.
+    Validate and clean the parsed response.
+    Ensures all fields exist with correct types.
+    Never drops patterns — fixes them instead.
     """
     if not isinstance(data, dict):
-        return get_fallback_response()
+        return fallback_response()
 
-    # Ensure top-level fields exist
     result = {
-        "platform_detected": data.get("platform_detected", "Unknown"),
-        "page_type": data.get("page_type", "unknown"),
+        "platform_detected": str(data.get("platform_detected", "Unknown") or "Unknown"),
+        "page_type": str(data.get("page_type", "unknown") or "unknown"),
         "patterns_detected": [],
         "hidden_costs": [],
-        "summary": data.get("summary", "Analysis complete.")
+        "summary": str(data.get("summary", "Analysis complete.") or "Analysis complete.")
     }
 
-    # Validate each pattern
-    raw_patterns = data.get("patterns_detected", [])
-    if isinstance(raw_patterns, list):
+    # Process patterns — fix issues, never drop
+    raw_patterns = data.get("patterns_detected")
+    if raw_patterns and isinstance(raw_patterns, list):
         for p in raw_patterns:
             if not isinstance(p, dict):
                 continue
 
-            # Validate severity
-            severity = p.get("severity", "CAUTION")
+            # Fix severity
+            severity = str(p.get("severity", "CAUTION") or "CAUTION").upper().strip()
             if severity not in ("FAIR", "CAUTION", "VIOLATION"):
                 severity = "CAUTION"
 
-            # Validate severity_score
-            try:
-                severity_score = int(p.get("severity_score", 3))
-                severity_score = max(0, min(5, severity_score))
-            except (ValueError, TypeError):
-                severity_score = 3
+            # Fix severity_score
+            severity_score = safe_int(p.get("severity_score"), 3)
+            severity_score = max(0, min(5, severity_score))
 
-            # Validate confidence
-            confidence = p.get("confidence", "medium")
+            # Fix ccpa_category_id
+            cat_id = safe_int(p.get("ccpa_category_id"), 0)
+            if cat_id < 0 or cat_id > 13:
+                cat_id = 0
+
+            # Fix confidence
+            confidence = str(p.get("confidence", "medium") or "medium").lower().strip()
             if confidence not in ("high", "medium", "low"):
                 confidence = "medium"
 
-            # Build clean evidence
-            raw_evidence = p.get("evidence", {})
-            if not isinstance(raw_evidence, dict):
-                raw_evidence = {}
+            # Build evidence safely
+            raw_ev = p.get("evidence")
+            if not isinstance(raw_ev, dict):
+                raw_ev = {}
 
             evidence = {
-                "element_type": str(raw_evidence.get("element_type", "unknown")),
-                "content": str(raw_evidence.get("content", "")),
-                "visual_prominence": str(raw_evidence.get("visual_prominence", "medium")),
-                "position": str(raw_evidence.get("position", "unknown"))
+                "element_type": str(raw_ev.get("element_type", "unknown") or "unknown"),
+                "content": str(raw_ev.get("content", "") or ""),
+                "visual_prominence": str(raw_ev.get("visual_prominence", "medium") or "medium"),
+                "position": str(raw_ev.get("position", "unknown") or "unknown")
             }
 
-            result["patterns_detected"].append({
-                "ccpa_category_id": int(p.get("ccpa_category_id", 0)),
-                "ccpa_category_name": str(p.get("ccpa_category_name", "Unknown")),
+            pattern = {
+                "ccpa_category_id": cat_id,
+                "ccpa_category_name": str(p.get("ccpa_category_name", "Unknown") or "Unknown"),
                 "severity": severity,
                 "severity_score": severity_score,
-                "title": str(p.get("title", "Unnamed Pattern")),
-                "description": str(p.get("description", "")),
-                "user_impact": str(p.get("user_impact", "")),
+                "title": str(p.get("title", "Detected Pattern") or "Detected Pattern"),
+                "description": str(p.get("description", "") or ""),
+                "user_impact": str(p.get("user_impact", "") or ""),
                 "evidence": evidence,
                 "confidence": confidence
-            })
+            }
 
-    # Validate hidden costs
-    raw_costs = data.get("hidden_costs", [])
-    if isinstance(raw_costs, list):
+            result["patterns_detected"].append(pattern)
+
+    # Process hidden costs
+    raw_costs = data.get("hidden_costs")
+    if raw_costs and isinstance(raw_costs, list):
         for c in raw_costs:
             if not isinstance(c, dict):
                 continue
-            result["hidden_costs"].append({
-                "label": str(c.get("label", "Unknown charge")),
-                "amount": str(c.get("amount", "₹0")),
+
+            cost = {
+                "label": str(c.get("label", "Unknown charge") or "Unknown charge"),
+                "amount": str(c.get("amount", "₹0") or "₹0"),
                 "was_disclosed_upfront": bool(c.get("was_disclosed_upfront", False)),
-                "disclosure_quality": str(c.get("disclosure_quality", "unknown"))
-            })
+                "disclosure_quality": str(c.get("disclosure_quality", "unknown") or "unknown")
+            }
+
+            result["hidden_costs"].append(cost)
 
     return result
 
 
-def get_fallback_response():
-    """Returns a safe fallback when everything fails."""
+def fallback_response():
+    """Safe fallback that never crashes the API."""
     return {
         "platform_detected": "Unknown",
         "page_type": "unknown",
@@ -240,82 +236,62 @@ def get_fallback_response():
     }
 
 
-# ═══════════════════════════════════════════════════════
-# MAIN ANALYSIS FUNCTION — With automatic retry
-# ═══════════════════════════════════════════════════════
-
 async def analyze_screenshot(image_bytes: bytes, mime_type: str = "image/png") -> dict:
     """
-    Sends screenshot to Gemini Flash for dark pattern analysis.
-    
-    Features:
-    - Strict JSON-only prompt
-    - Automatic retry on parse failure (up to 2 attempts)
-    - Multiple JSON extraction strategies
-    - Response validation and cleaning
-    - Guaranteed valid response (never crashes)
+    Core analysis function.
+    Sends image to Gemini, parses response, validates data.
+    Retries once on failure. Never crashes.
     """
-    
     image_data = {
         "mime_type": mime_type,
         "data": base64.b64encode(image_bytes).decode("utf-8")
     }
 
-    max_retries = 2
-    last_error = None
-
-    for attempt in range(max_retries):
+    for attempt in range(2):
         try:
             model = genai.GenerativeModel(GEMINI_MODEL)
 
-            # Attempt with structured JSON output on first try
-            # Fall back to plain text on retry (sometimes more reliable)
+            # First attempt: force JSON output
+            # Second attempt: plain text (sometimes more reliable)
             if attempt == 0:
-                generation_config = {
-                    "temperature": 0.1,
+                config = {
+                    "temperature": 0.15,
                     "max_output_tokens": 4096,
                     "response_mime_type": "application/json"
                 }
             else:
-                # Retry without forcing JSON mime type
-                # Sometimes Gemini responds better in plain text mode
-                generation_config = {
-                    "temperature": 0.05,
+                config = {
+                    "temperature": 0.1,
                     "max_output_tokens": 4096,
                 }
 
             response = await model.generate_content_async(
                 [ANALYSIS_PROMPT, image_data],
-                generation_config=generation_config
+                generation_config=config
             )
 
-            # Check if response has text
             if not response.text:
-                last_error = "Empty response from Gemini"
+                print(f"[DarkLens] Attempt {attempt + 1}: Empty response from Gemini")
                 continue
 
-            # Attempt to extract JSON
-            parsed = extract_json_from_text(response.text)
+            # Try to parse
+            parsed = extract_json(response.text)
 
             if parsed is not None:
-                # Validate and clean the parsed data
-                cleaned = validate_and_clean(parsed)
+                cleaned = clean_response(parsed)
+                print(f"[DarkLens] Success: {len(cleaned['patterns_detected'])} patterns, "
+                      f"{len(cleaned['hidden_costs'])} hidden costs")
                 return {"status": "success", "data": cleaned}
             else:
-                last_error = f"Could not extract JSON (attempt {attempt + 1})"
-                # Will retry with different config
+                print(f"[DarkLens] Attempt {attempt + 1}: JSON parse failed")
+                print(f"[DarkLens] Raw response (first 300 chars): {response.text[:300]}")
 
         except Exception as e:
-            last_error = str(e)
-
-            # If it's a rate limit error, wait briefly before retry
+            print(f"[DarkLens] Attempt {attempt + 1} error: {str(e)}")
             if "429" in str(e) or "quota" in str(e).lower():
                 await asyncio.sleep(2)
-            
             continue
 
-    # All retries exhausted — return fallback (never crash)
-    return {
-        "status": "success",
-        "data": get_fallback_response()
-    }
+    # All attempts failed — return fallback
+    print("[DarkLens] All attempts failed, returning fallback")
+    return {"status": "success", "data": fallback_response()}
