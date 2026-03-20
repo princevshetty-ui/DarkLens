@@ -163,8 +163,11 @@ function generateKeyInsight(result, crossImage, isLowConfidence = false) {
   // Hidden costs detected
   if (costs.length > 0) {
     const totalCost = costs.reduce((sum, c) => {
-      const digits = String(c.amount).replace(/[^0-9]/g, "");
-      return sum + (parseInt(digits) || 0);
+      const normalized = String(c.amount ?? "")
+        .replace(/[^0-9.,-]/g, "")
+        .replace(/,/g, "");
+      const amount = Number.parseFloat(normalized);
+      return sum + (Number.isFinite(amount) ? amount : 0);
     }, 0);
     if (totalCost > 0) {
       return {
@@ -172,7 +175,7 @@ function generateKeyInsight(result, crossImage, isLowConfidence = false) {
         color: "text-orange-400",
         bg: "bg-orange-500/5",
         border: "border-orange-500/15",
-        text: `₹${totalCost} in charges are not transparently disclosed during the initial browsing experience. These fees become visible only as you approach payment.`
+        text: `₹${totalCost.toFixed(2)} in charges are not transparently disclosed during the initial browsing experience. These fees become visible only as you approach payment.`
       };
     }
   }

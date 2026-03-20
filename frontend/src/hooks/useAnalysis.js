@@ -5,8 +5,11 @@ import axios from "axios";
 
 function parseCurrency(str) {
   if (!str) return 0;
-  const digits = String(str).replace(/[^0-9]/g, "");
-  return parseInt(digits) || 0;
+  const normalized = String(str)
+    .replace(/[^0-9.,-]/g, "")
+    .replace(/,/g, "");
+  const amount = Number.parseFloat(normalized);
+  return Number.isFinite(amount) ? amount : 0;
 }
 
 function getGradeFromScore(score) {
@@ -162,7 +165,9 @@ function mergeResults(results) {
     total_patterns_found: allPatterns.length,
     categories_violated: [...new Set(allPatterns.map(p => p.ccpa_category_id))],
     hidden_costs: allCosts,
-    estimated_overcharge: totalOvercharge > 0 ? `₹${totalOvercharge}` : "₹0",
+    estimated_overcharge: totalOvercharge > 0
+      ? `₹${Number.isInteger(totalOvercharge) ? totalOvercharge : totalOvercharge.toFixed(2)}`
+      : "₹0",
     manipulation_score: maxScore,
     ...gradeInfo,
     summary: combinedSummary,

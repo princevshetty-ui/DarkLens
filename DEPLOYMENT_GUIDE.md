@@ -73,6 +73,104 @@ Fix by:
 
 ## 4. Production deployment patterns
 
+## Option S: Single service (frontend + backend together, free)
+
+If you want one deployment for both frontend and backend, use Render Free Web Service with Docker.
+This repository is already set up for that.
+
+### Why this works
+
+- Frontend is built inside Docker.
+- Backend serves API and static frontend from the same container.
+- One URL, one deployment, no cross-origin complexity.
+
+### Files already prepared
+
+- `Dockerfile` (builds frontend + runs FastAPI)
+- `render.yaml` (free Render web service blueprint)
+- `.dockerignore` (keeps build lightweight)
+
+### Deploy steps (Render)
+
+1. Push current code to GitHub.
+2. Open Render dashboard -> New -> Blueprint.
+3. Select this repository.
+4. Render reads `render.yaml` and creates one web service.
+5. Set required env vars in Render:
+
+```env
+GEMINI_API_KEY=your_google_gemini_api_key
+LOG_LEVEL=INFO
+CORS_ORIGINS=https://your-render-app.onrender.com
+```
+
+6. Deploy and open your Render URL.
+
+### Notes for free tier
+
+- Free services sleep when idle and can take time to wake up.
+- First request after idle may be slow.
+
+### Quick verification
+
+1. Open `/api/health` -> should return 200.
+2. Open `/` -> frontend should load.
+3. Upload an image and run analysis.
+4. Test export JSON/PDF.
+
+---
+
+## Option V: Vercel (frontend only)
+
+DarkLens frontend is Vite/React and works well on Vercel.
+The current backend (FastAPI + Playwright + local SQLite/cache/corpus writes) is better deployed on Railway/Render/Fly/AWS, not Vercel serverless.
+
+### Step 1: Deploy backend first
+
+Deploy `DarkLens/backend` to a backend host and get a public backend URL, for example:
+
+```text
+https://darklens-api.onrender.com
+```
+
+Set backend env vars there:
+
+```env
+GEMINI_API_KEY=your_google_gemini_api_key
+CORS_ORIGINS=https://your-vercel-app.vercel.app
+LOG_LEVEL=INFO
+```
+
+### Step 2: Deploy frontend on Vercel
+
+In Vercel project settings:
+
+- Framework preset: `Vite`
+- Root directory: `frontend`
+- Build command: `npm run build`
+- Output directory: `dist`
+
+Set frontend env var in Vercel:
+
+```env
+VITE_API_BASE_URL=https://darklens-api.onrender.com
+```
+
+### Step 3: Redeploy frontend
+
+After saving env vars in Vercel, trigger redeploy.
+
+### Step 4: Verify
+
+1. Open deployed frontend URL
+2. Upload image and run analysis
+3. Test export JSON/PDF
+4. Confirm no CORS errors in browser console
+
+### Important note
+
+If you later move to single-origin hosting, set `VITE_API_BASE_URL` empty and serve frontend + backend from same domain.
+
 ## Option A: Single origin (recommended)
 
 Serve frontend build and backend from same domain.
