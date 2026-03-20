@@ -48,6 +48,25 @@ app.include_router(analyze.router)
 
 @app.get("/")
 async def root():
+    # In single-service deployments (Render/Docker), serve the frontend at root.
+    if frontend_dist:
+        index_path = frontend_dist / "index.html"
+        if index_path.exists():
+            return FileResponse(index_path)
+
+    # Fallback for API-only mode.
+    return {
+        "service": "DarkLens API",
+        "status": "running",
+        "docs": "/docs",
+        "openapi": "/openapi.json",
+        "health": "/api/health",
+        "version": "1.0.0"
+    }
+
+
+@app.get("/api")
+async def api_root():
     return {
         "service": "DarkLens API",
         "status": "running",
