@@ -10,6 +10,7 @@ from PIL import Image, UnidentifiedImageError
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import GEMINI_API_KEY, GEMINI_MODEL
+from services.cache import get_cache, AnalysisCache
 
 genai.configure(api_key=GEMINI_API_KEY)
 
@@ -301,10 +302,25 @@ def preprocess_image(image_bytes: bytes, mime_type: str = "image/png"):
 
 async def analyze_screenshot(image_bytes: bytes, mime_type: str = "image/png") -> dict:
     """
-    Core analysis function.
-    Sends image to Gemini, parses response, validates data.
-    Retries once on failure. Never crashes.
+    Core analysis function with caching.
+    1. Check if image hash is in cache
+    2. If hit, return cached Gemini response
+    3. If miss, send to Gemini and cache result
+    4. Parse response, validate data
+    5. Retry once on failure. Never crashes.
     """
+    
+    # ── Stage 1: Check cache ──
+    cache = get_cache()
+    image_hash = cache.hash_image(image_bytes)
+    
+    cached_response = cache.get(image_hash)
+    if cached_response is not None:
+        print(f"[DarkLens] 💾 Cache HIT: {image_hash[:8]}... → returning cached analysis")
+        return {"status": "success", "data": cached_response}
+    
+    print(f"[DarkLens] 💾 Cache MISS: {image_hash[:8]}... → calling Gemini")
+    
     processed_bytes, processed_mime_type = preprocess_image(image_bytes, mime_type)
 
     image_data = {
@@ -344,6 +360,11 @@ async def analyze_screenshot(image_bytes: bytes, mime_type: str = "image/png") -
 
             if parsed is not None:
                 cleaned = clean_response(parsed)
+                
+                # ── Stage 2: Cache the result ──
+                cache.set(image_hash, cleaned)
+                print(f"[DarkLens] 💾 Cached result: {image_hash[:8]}...")
+                
                 print(f"[DarkLens] Success: {len(cleaned['patterns_detected'])} patterns, "
                       f"{len(cleaned['hidden_costs'])} hidden costs")
                 return {"status": "success", "data": cleaned}

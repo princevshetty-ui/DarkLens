@@ -268,7 +268,6 @@ cd frontend && npm run dev
 - **URL Crawl Mode** — Paste URL, server-side Playwright captures and analyzes
 - **DOM Inspection** — Detect hidden checkboxes and fake timers in HTML source
 - **Community Reporting** — Users report patterns, strengthening detection database
-- **Multi-language** — Hindi, Kannada, Tamil interface support
 - **PDF Reports** — Downloadable evidence reports for consumer complaints
 
 ---
@@ -295,17 +294,6 @@ Organized by Department of Computer Science & Applications, Christ Academy Insti
 - **SDG 9** — Industry, Innovation and Infrastructure
 
 ---
-
 *DarkLens — Because transparency shouldn't be optional.*
 ```
-
 ---
-
----
-
-## Document 2: Complete Judge Defense Script
-
-Print this or keep it on a phone. Every team member should read it before presenting.
-
----
-

@@ -262,3 +262,151 @@ def calculate_overcharge(hidden_costs):
                 pass
 
     return total
+
+
+def format_for_export(analysis_response: dict) -> dict:
+    """
+    Formats the full analysis response for report export.
+    Includes all patterns, scores, and metadata.
+    
+    Returns: JSON-serializable dict suitable for PDF/JSON export
+    """
+    return {
+        "analysis_id": analysis_response.get("analysis_id", "unknown"),
+        "timestamp": analysis_response.get("timestamp", ""),
+        "platform_detected": analysis_response.get("platform_detected", "Unknown"),
+        "page_type": analysis_response.get("page_type", "unknown"),
+        
+        "manipulation_score": analysis_response.get("manipulation_score", 0),
+        "grade": analysis_response.get("grade", "A"),
+        "grade_label": analysis_response.get("grade_label", ""),
+        
+        "total_patterns_found": analysis_response.get("total_patterns_found", 0),
+        "patterns_detected": analysis_response.get("patterns_detected", []),
+        
+        "hidden_costs": analysis_response.get("hidden_costs", []),
+        "estimated_overcharge": analysis_response.get("estimated_overcharge", "₹0"),
+        
+        "categories_violated": analysis_response.get("categories_violated", []),
+        "summary": analysis_response.get("summary", ""),
+    }
+
+
+def format_for_corpus(analysis_response: dict, user_consent: bool = True) -> dict:
+    """
+    Formats analysis for research corpus contribution.
+    Anonymizes sensitive data, includes only patterns and metadata.
+    
+    Returns: Dict suitable for appending to pattern_corpus.jsonl
+    """
+    if not user_consent:
+        return {}
+    
+    return {
+        "analysis_id": analysis_response.get("analysis_id", ""),
+        "timestamp": analysis_response.get("timestamp", ""),
+        "platform_detected": analysis_response.get("platform_detected", "Unknown"),
+        "page_type": analysis_response.get("page_type", "unknown"),
+        "manipulation_score": analysis_response.get("manipulation_score", 0),
+        "pattern_count": analysis_response.get("total_patterns_found", 0),
+        "categories_violated": analysis_response.get("categories_violated", []),
+        "patterns": [
+            {
+                "pattern_id": p.get("pattern_id"),
+                "ccpa_category_id": p.get("ccpa_category_id"),
+                "ccpa_category_name": p.get("ccpa_category_name"),
+                "severity": p.get("severity"),
+                "severity_score": p.get("severity_score"),
+                "title": p.get("title"),
+                "confidence": p.get("confidence"),
+            }
+            for p in analysis_response.get("patterns_detected", [])
+        ],
+    }
+
+
+def aggregate_batch_findings(results: list[dict]) -> dict:
+    """
+    Aggregate findings from multiple analyses (batch URLs).
+    
+    Detects:
+    - Patterns duplicated across URLs
+    - Category prevalence
+    - Cross-site manipulation patterns
+    
+    Input: List of analysis results from individual /analyze/image calls
+    Output: Aggregated findings with cross-site patterns highlighted
+    """
+    
+    if not results:
+        return {
+            "status": "error",
+            "message": "No results to aggregate",
+            "total_urls": 0,
+            "successful_analyses": 0,
+            "patterns_found_count": 0,
+            "cross_site_patterns": [],
+            "category_distribution": {},
+        }
+    
+    # Filter successful results
+    successful = [r for r in results if r and r.get("status") == "complete"]
+    total_patterns = []
+    category_counts = {}
+    pattern_prevalence = {}  # pattern_title → [urls]
+    
+    # Collect all patterns and track prevalence
+    for analysis in successful:
+        for pattern in analysis.get("patterns_detected", []):
+            title = pattern.get("title", "Unknown")
+            total_patterns.append({
+                "title": title,
+                "url_index": len([a for a in successful[:successful.index(analysis)]]),
+                "category_id": pattern.get("ccpa_category_id"),
+                "category_name": pattern.get("ccpa_category_name"),
+                "severity": pattern.get("severity"),
+            })
+            
+            # Track prevalence
+            if title not in pattern_prevalence:
+                pattern_prevalence[title] = []
+            pattern_prevalence[title].append(analysis.get("analysis_id", "unknown"))
+            
+            # Track category counts
+            cat_id = pattern.get("ccpa_category_id", 0)
+            category_counts[cat_id] = category_counts.get(cat_id, 0) + 1
+    
+    # Identify cross-site patterns (appear on 2+ URLs)
+    cross_site = [
+        {
+            "pattern_title": title,
+            "prevalence": f"{len(urls)}/{len(successful)} sites",
+            "affected_analyses": urls,
+            "severity": max([p["severity"] for p in total_patterns if p["title"] == title], default="FAIR"),
+        }
+        for title, urls in pattern_prevalence.items()
+        if len(urls) > 1
+    ]
+    
+    # Sort by prevalence
+    cross_site.sort(key=lambda x: len(x["affected_analyses"]), reverse=True)
+    
+    return {
+        "status": "success",
+        "total_urls_analyzed": len(results),
+        "successful_analyses": len(successful),
+        "failed_analyses": len(results) - len(successful),
+        "patterns_found_count": len(total_patterns),
+        "unique_patterns": len(pattern_prevalence),
+        "cross_site_patterns": cross_site,
+        "category_distribution": category_counts,
+        "avg_manipulation_score": round(
+            sum(a.get("manipulation_score", 0) for a in successful) / len(successful)
+            if successful else 0
+        ),
+        "riskiest_url": max(
+            successful,
+            key=lambda a: a.get("manipulation_score", 0),
+            default=None
+        ) if successful else None,
+    }

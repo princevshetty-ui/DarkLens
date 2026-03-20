@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  darklens:
+    image: princevshetty/darklens:latest
+    container_name: darklens-app
+    restart: always
+    ports:
+      - "80:8000"  # Map port 80 to container port 8000
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - LOG_LEVEL=INFO
+      - CORS_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+    volumes:
+      - ./data:/app/backend/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - darklens-network
+
+networks:
+  darklens-network:
+    driver: bridge

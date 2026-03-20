@@ -3,7 +3,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Shield, AlertTriangle, DollarSign, Eye, TrendingDown,
   MapPin, CheckCircle, ChevronRight, RotateCcw, ShieldAlert,
-  Target, Users, Zap, FileWarning, Layers, ArrowRight, Lightbulb
+  Target, Users, Zap, FileWarning, Layers, ArrowRight, Lightbulb,
+  Download, Share2, Check, X, AlertCircle
 } from "lucide-react";
 
 import GlassCard from "./components/layout/GlassCard";
@@ -11,6 +12,8 @@ import UploadZone from "./components/upload/UploadZone";
 import ScanningOverlay from "./components/analysis/ScanningOverlay";
 import ScoreGauge from "./components/analysis/ScoreGauge";
 import { useAnalysis } from "./hooks/useAnalysis";
+import { API_ENDPOINTS } from "./config/api";
+import { fetchWithRetry, formatErrorMessage } from "./config/apiClient";
 
 // ── Typing Effect ──
 function TypingText({ text, speed = 18, delay = 0, className = "" }) {
@@ -350,6 +353,10 @@ function EnhancedPatternCard({ pattern, index }) {
 export default function App() {
   const { status, result, crossImage, error, scanProgress, analyzeImages, reset } = useAnalysis();
   const [toast, setToast] = useState(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showResearchConsent, setShowResearchConsent] = useState(false);
+  const [researchConsent, setResearchConsent] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const analysisResult = result || null;
   const fallbackSummaryMessage = "Analysis could not be completed. Please try again with a clearer screenshot.";
@@ -387,6 +394,89 @@ export default function App() {
       // Error state is already managed inside the analysis hook.
     }
   }, [analyzeImages]);
+
+  const handleExportReport = useCallback(async (format = "json") => {
+    if (!analysisResult) return;
+    
+    setIsExporting(true);
+    try {
+      const response = await fetchWithRetry(API_ENDPOINTS.EXPORT_REPORT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          analysis_response: analysisResult,
+          format: format,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Export failed");
+
+      const contentType = response.headers.get("content-type");
+      const filename = response.headers
+        .get("content-disposition")
+        ?.split("filename=")[1]?.replaceAll('"', "") || `report.${format}`;
+
+      if (format === "json") {
+        const data = await response.json();
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else if (format === "pdf") {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      setToast({ type: "success", message: `Report exported as ${format.toUpperCase()} ✅` });
+      setShowExportModal(false);
+    } catch (err) {
+      const errorMsg = formatErrorMessage(err);
+      setToast({ type: "error", message: `Export failed: ${errorMsg}` });
+      console.error("Export error:", err);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [analysisResult]);
+
+  const handleContributeToCorpus = useCallback(async () => {
+    if (!analysisResult || !researchConsent) return;
+
+    setIsExporting(true);
+    try {
+      const response = await fetchWithRetry(API_ENDPOINTS.RESEARCH_CONTRIBUTE, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          analysis_response: analysisResult,
+          consent: true,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || "Contribution failed");
+      }
+
+      const data = await response.json();
+      setToast({ type: "success", message: data.message || "Thank you for contributing to our research! ✅" });
+      setShowResearchConsent(false);
+      setResearchConsent(false);
+    } catch (err) {
+      const errorMsg = formatErrorMessage(err);
+      setToast({ type: "error", message: `Contribution failed: ${errorMsg}` });
+      console.error("Contribution error:", err);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [analysisResult, researchConsent]);
 
   // Derived
   const riskLevel = analysisResult ? getRiskLevel(effectiveScore) : null;
@@ -461,12 +551,26 @@ export default function App() {
               </div>
             </motion.div>
             {status === "complete" && (
-              <motion.button initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
-                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={reset}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 
-                           hover:bg-white/10 hover:border-white/20 transition-all text-sm text-white/50 hover:text-white">
-                <RotateCcw size={14} /> New Analysis
-              </motion.button>
+              <div className="flex items-center gap-2">
+                <motion.button initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
+                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setShowResearchConsent(true)}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 
+                             hover:bg-neon-purple/15 hover:border-neon-purple/30 transition-all text-sm text-white/50 hover:text-neon-purple">
+                  <Share2 size={14} /> Contribute
+                </motion.button>
+                <motion.button initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
+                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setShowExportModal(true)}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 
+                             hover:bg-white/10 hover:border-white/20 transition-all text-sm text-white/50 hover:text-white">
+                  <Download size={14} /> Export
+                </motion.button>
+                <motion.button initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
+                  whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={reset}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 
+                             hover:bg-white/10 hover:border-white/20 transition-all text-sm text-white/50 hover:text-white">
+                  <RotateCcw size={14} /> New Analysis
+                </motion.button>
+              </div>
             )}
           </div>
         </header>
@@ -882,6 +986,107 @@ export default function App() {
             DarkLens — Built at Hack4Future 2025 | AI-Powered Dark Pattern Forensics Engine
           </p>
         </footer>
+
+        {/* ═══ EXPORT MODAL ═══ */}
+        <AnimatePresence>
+          {showExportModal && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-40" onClick={() => setShowExportModal(false)}>
+              <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()}
+                className="bg-dark-900/80 border border-white/10 rounded-2xl p-8 max-w-sm w-full">
+                <h3 className="text-xl font-heading font-bold text-white mb-1">Export Report</h3>
+                <p className="text-sm text-white/40 mb-6">Choose your preferred format</p>
+
+                <div className="space-y-3 mb-6">
+                  <button onClick={() => handleExportReport("json")} disabled={isExporting}
+                    className="w-full flex items-center gap-3 p-4 border border-white/10 rounded-xl hover:bg-white/5 transition disabled:opacity-50">
+                    <Download size={16} className="text-neon-blue" />
+                    <div className="text-left">
+                      <p className="text-sm font-semibold text-white">JSON Format</p>
+                      <p className="text-xs text-white/40">Structured data for analysis</p>
+                    </div>
+                  </button>
+                  <button onClick={() => handleExportReport("pdf")} disabled={isExporting}
+                    className="w-full flex items-center gap-3 p-4 border border-white/10 rounded-xl hover:bg-white/5 transition disabled:opacity-50">
+                    <Download size={16} className="text-neon-purple" />
+                    <div className="text-left">
+                      <p className="text-sm font-semibold text-white">PDF Report</p>
+                      <p className="text-xs text-white/40">Professional printable report</p>
+                    </div>
+                  </button>
+                </div>
+
+                <button onClick={() => setShowExportModal(false)}
+                  className="w-full py-2 px-4 border border-white/10 rounded-lg text-sm text-white/50 hover:text-white hover:bg-white/5 transition">
+                  Cancel
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ═══ RESEARCH CONSENT MODAL ═══ */}
+        <AnimatePresence>
+          {showResearchConsent && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-40" onClick={() => setShowResearchConsent(false)}>
+              <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()}
+                className="bg-dark-900/80 border border-white/10 rounded-2xl p-8 max-w-md w-full">
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="p-2 rounded-lg bg-neon-purple/10 border border-neon-purple/20 shrink-0">
+                    <Share2 size={18} className="text-neon-purple" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-heading font-bold text-white">Contribute to Research</h3>
+                    <p className="text-xs text-white/40">Help improve dark pattern detection</p>
+                  </div>
+                </div>
+
+                <p className="text-sm text-white/60 mb-6 leading-relaxed">
+                  Your anonymized pattern findings will be contributed to the DarkLens research database. This helps us understand dark pattern trends and improves detection for all users. No personal data is collected.
+                </p>
+
+                <div className="flex items-start gap-2 p-4 bg-white/5 rounded-lg border border-white/10 mb-6">
+                  <input type="checkbox" id="consent" checked={researchConsent} onChange={(e) => setResearchConsent(e.target.checked)}
+                    className="mt-1 accent-neon-purple" />
+                  <label htmlFor="consent" className="text-sm text-white/50">
+                    I consent to share my anonymized pattern findings with the DarkLens research database
+                  </label>
+                </div>
+
+                <div className="flex gap-3">
+                  <button onClick={() => setShowResearchConsent(false)}
+                    className="flex-1 py-2 px-4 border border-white/10 rounded-lg text-sm text-white/50 hover:text-white hover:bg-white/5 transition">
+                    Cancel
+                  </button>
+                  <button onClick={handleContributeToCorpus} disabled={!researchConsent || isExporting}
+                    className="flex-1 py-2 px-4 bg-neon-purple/20 border border-neon-purple/40 rounded-lg text-sm text-neon-purple hover:bg-neon-purple/30 transition disabled:opacity-50 flex items-center justify-center gap-2">
+                    {isExporting ? <span>Contributing...</span> : <>
+                      <Check size={14} /> Contribute
+                    </>}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ═══ TOAST NOTIFICATION ═══ */}
+        <AnimatePresence>
+          {toast && (
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+              className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl border ${
+                toast.type === "success"
+                  ? "bg-green-500/10 border-green-500/30 text-green-400"
+                  : "bg-red-500/10 border-red-500/30 text-red-400"
+              }`}>
+              {toast.type === "success" ? <Check size={14} /> : <X size={14} />}
+              <span className="text-sm">{toast.message}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
