@@ -183,6 +183,7 @@ export function useAnalysis() {
   const [result, setResult] = useState(null);          // merged results
   const [crossImage, setCrossImage] = useState(null);  // cross-image findings
   const [error, setError] = useState(null);
+  const [errorMeta, setErrorMeta] = useState(null);    // { error_type, hint } for rich error UI
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
 
   const analyzeImages = useCallback(async (files, onImageResponse) => {
@@ -192,6 +193,7 @@ export function useAnalysis() {
     setResult(null);
     setCrossImage(null);
     setError(null);
+    setErrorMeta(null);
     setScanProgress({ current: 0, total: files.length });
 
     try {
@@ -246,6 +248,7 @@ export function useAnalysis() {
     setResult(null);
     setCrossImage(null);
     setError(null);
+    setErrorMeta(null);
     setScanProgress({ current: 1, total: 1 });
 
     try {
@@ -264,8 +267,16 @@ export function useAnalysis() {
       setStatus("complete");
       return normalized;
     } catch (err) {
-      const msg = err.response?.data?.detail || err.message || "URL analysis failed. Please try again.";
+      const detail = err.response?.data?.detail;
+      let msg, meta = null;
+      if (detail && typeof detail === "object") {
+        msg = detail.message || "URL analysis failed.";
+        meta = { error_type: detail.error_type || null, hint: detail.hint || null };
+      } else {
+        msg = detail || err.message || "URL analysis failed. Please try again.";
+      }
       setError(msg);
+      setErrorMeta(meta);
       setStatus("error");
       throw err;
     }
@@ -276,8 +287,9 @@ export function useAnalysis() {
     setResult(null);
     setCrossImage(null);
     setError(null);
+    setErrorMeta(null);
     setScanProgress({ current: 0, total: 0 });
   }, []);
 
-  return { status, result, crossImage, error, scanProgress, analyzeImages, analyzeUrl, reset };
+  return { status, result, crossImage, error, errorMeta, scanProgress, analyzeImages, analyzeUrl, reset };
 }

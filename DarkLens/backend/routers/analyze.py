@@ -2,7 +2,7 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from services.vision_analyzer import analyze_screenshot
 from services.pattern_classifier import enrich_patterns, compute_score, format_for_export, format_for_corpus, aggregate_batch_findings
-from services.crawler import batch_crawl_and_screenshot
+from services.crawler import batch_crawl_and_screenshot, LoginWallDetected
 from services.cache import get_cache
 from datetime import datetime
 import uuid
@@ -282,6 +282,23 @@ async def analyze_url_endpoint(url_data: dict):
     # ── Stage 2: Crawl ──
     try:
         image_bytes = await crawl_and_screenshot(url)
+    except LoginWallDetected as e:
+        print(f"[DarkLens API] Login wall detected for {url}: {str(e)}")
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error_type": "login_wall",
+                "message": (
+                    "This page requires you to be logged in. "
+                    "DarkLens can only analyze public pages that don't need authentication."
+                ),
+                "hint": (
+                    "Try a product listing page or search results URL, e.g. "
+                    "https://www.flipkart.com/search?q=laptop or "
+                    "https://www.amazon.in/s?k=headphones"
+                ),
+            },
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

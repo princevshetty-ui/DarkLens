@@ -39,6 +39,49 @@ const CCPA_CATEGORIES = [
 // ── Supported URL platforms ──
 const SUPPORTED_PLATFORMS = ["flipkart.com", "amazon.in", "amazon.com", "myntra.com", "meesho.com", "snapdeal.com", "paytm.com"];
 
+// ── Sample public URLs that work without login ──
+const SAMPLE_URLS = [
+  { platform: "Flipkart", url: "https://www.flipkart.com/search?q=laptop", label: "Laptop Search" },
+  { platform: "Amazon.in", url: "https://www.amazon.in/s?k=headphones", label: "Headphone Search" },
+  { platform: "Myntra", url: "https://www.myntra.com/shirts", label: "Shirts Category" },
+  { platform: "Meesho", url: "https://meesho.com/earrings", label: "Earrings Category" },
+  { platform: "Snapdeal", url: "https://www.snapdeal.com/products/mobiles-mobile-phones", label: "Mobiles" },
+];
+
+// ── URL Type Classifier ──
+// Returns { type: "public"|"protected"|"unknown", label, color }
+function classifyUrl(url) {
+  if (!url || !url.trim()) return null;
+  const lower = url.toLowerCase();
+
+  // Protected paths — these require login
+  const protectedTokens = [
+    "/cart", "/checkout", "/buy/", "/order/", "/orders",
+    "/account/", "/profile", "/wishlist", "/my-",
+    "ap/signin", "/signin", "/login", "/sign-in",
+  ];
+  for (const t of protectedTokens) {
+    if (lower.includes(t)) {
+      return { type: "protected", label: "Requires Login", color: "red" };
+    }
+  }
+
+  // Public paths — product listings, search, categories
+  const publicTokens = [
+    "/search", "/s?", "?q=", "?query=", "?k=",
+    "/dp/", "/itm/", "/product/", "/p/",
+    "/browse", "/category/", "/c/",
+    "/mobiles", "/phones", "/laptops", "/shirts", "/shoes", "/earrings",
+  ];
+  for (const t of publicTokens) {
+    if (lower.includes(t)) {
+      return { type: "public", label: "Public Page ✓", color: "green" };
+    }
+  }
+
+  return { type: "unknown", label: "Unknown page type", color: "gray" };
+}
+
 // ── Typing Effect ──
 function TypingText({ text, speed = 18, delay = 0, className = "" }) {
   const [displayed, setDisplayed] = useState("");
@@ -373,6 +416,98 @@ function EnhancedPatternCard({ pattern, index }) {
 }
 
 
+
+
+// ── Innovation Showcase ──
+const INNOVATION_ITEMS = [
+  {
+    emoji: "🔬",
+    title: "AI Forensics",
+    desc: "Gemini Vision reads screenshots like a forensic expert, classifying dark patterns under India's CCPA 2023 — a first for Indian consumers.",
+    titleClass: "text-neon-blue/80",
+  },
+  {
+    emoji: "🧬",
+    title: "Manipulation DNA",
+    desc: "Every platform leaves a unique 13-category fingerprint. No other tool visualises manipulation as a radar signature.",
+    titleClass: "text-neon-purple/80",
+  },
+  {
+    emoji: "🌍",
+    title: "Community Index",
+    desc: "Crowd-sourced trust scores for Indian e-commerce platforms — building India's first public dark pattern database.",
+    titleClass: "text-neon-green/80",
+  },
+];
+
+const ROADMAP_ITEMS = [
+  { emoji: "🔌", title: "Browser Extension", desc: "Real-time dark pattern overlay as you shop — highlights manipulation the moment it appears." },
+  { emoji: "⚖️", title: "Legal Action Guide", desc: "Auto-generate a CCPA complaint letter from your analysis in one click." },
+  { emoji: "🔍", title: "Comparison Mode", desc: "Compare two platforms side-by-side to see which is more manipulative." },
+  { emoji: "📱", title: "Mobile App", desc: "Scan with your phone camera directly — no screenshots, no uploads." },
+];
+
+function InnovationShowcase() {
+  const [showRoadmap, setShowRoadmap] = useState(false);
+  const colorMap = { blue: "neon-blue", purple: "neon-purple", green: "neon-green" };
+
+  return (
+    <GlassCard className="p-6">
+      <div className="flex items-center gap-2 mb-1">
+        <Zap size={16} className="text-yellow-400 icon-bounce" />
+        <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-white/35">What Makes DarkLens Different</h3>
+      </div>
+      <p className="text-[11px] text-white/20 mb-5">
+        Three capabilities that no other Indian consumer tool offers today
+      </p>
+
+      <div className="space-y-3 mb-5">
+        {INNOVATION_ITEMS.map(item => (
+          <div key={item.title} className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+            <span className="text-xl shrink-0 mt-0.5">{item.emoji}</span>
+            <div>
+              <p className={`text-sm font-semibold text-${colorMap[item.color]}/80 mb-0.5`}>{item.title}</p>
+              <p className="text-xs text-white/35 leading-relaxed">{item.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button
+        onClick={() => setShowRoadmap(r => !r)}
+        className="flex items-center gap-2 text-xs text-white/30 hover:text-white/60 transition-colors"
+      >
+        <TrendingUp size={12} />
+        {showRoadmap ? "Hide" : "Show"} Innovation Roadmap
+      </button>
+
+      <AnimatePresence>
+        {showRoadmap && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="overflow-hidden"
+          >
+            <div className="mt-4 pt-4 border-t border-white/5 grid grid-cols-2 gap-2.5">
+              {ROADMAP_ITEMS.map(item => (
+                <div key={item.title} className="flex items-start gap-2 p-2.5 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                  <span className="text-base shrink-0">{item.emoji}</span>
+                  <div>
+                    <p className="text-[11px] font-semibold text-white/50">{item.title}</p>
+                    <p className="text-[10px] text-white/20 leading-relaxed mt-0.5">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </GlassCard>
+  );
+}
+
 // ── Radar Tooltip for Manipulation DNA ──
 function RadarTooltip({ active, payload }) {
   if (active && payload && payload.length) {
@@ -563,7 +698,7 @@ function CommunityTrustIndex() {
 // ═════════════════════════════════════════
 
 export default function App() {
-  const { status, result, crossImage, error, scanProgress, analyzeImages, analyzeUrl, reset } = useAnalysis();
+  const { status, result, crossImage, error, errorMeta, scanProgress, analyzeImages, analyzeUrl, reset } = useAnalysis();
   const [toast, setToast] = useState(null);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showResearchConsent, setShowResearchConsent] = useState(false);
@@ -873,24 +1008,53 @@ export default function App() {
                         <Globe size={16} className="text-neon-purple" />
                         <p className="text-sm font-semibold text-white/70">Live URL Scanner</p>
                       </div>
-                      <p className="text-xs text-white/30 leading-relaxed">
-                        Paste a checkout / product page URL. DarkLens will auto-crawl and screenshot it for analysis.
-                      </p>
 
-                      {/* URL Input */}
-                      <div className="relative">
-                        <Link size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/25" />
-                        <input
-                          type="url"
-                          value={urlInput}
-                          onChange={e => { setUrlInput(e.target.value); setUrlError(""); }}
-                          onKeyDown={e => e.key === "Enter" && status !== "scanning" && handleUrlScan()}
-                          placeholder="https://flipkart.com/..."
-                          disabled={status === "scanning"}
-                          className="w-full pl-9 pr-4 py-3 rounded-xl bg-white/[0.04] border border-white/10 text-sm text-white/80
-                                     placeholder:text-white/20 focus:outline-none focus:border-neon-purple/40 focus:bg-white/[0.06] transition-all
-                                     disabled:opacity-50"
-                        />
+                      {/* Info box: what pages work */}
+                      <div className="rounded-xl bg-amber-500/5 border border-amber-500/15 p-3">
+                        <p className="text-[11px] text-amber-400/80 leading-relaxed">
+                          <span className="font-semibold">⚡ Important:</span> Cart and checkout pages require login — 
+                          DarkLens can only scan <span className="font-semibold">public pages</span> like search results, 
+                          category pages, and product listings.
+                        </p>
+                      </div>
+
+                      {/* URL Input with live type indicator */}
+                      <div className="space-y-1.5">
+                        <div className="relative">
+                          <Link size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/25" />
+                          <input
+                            type="url"
+                            value={urlInput}
+                            onChange={e => { setUrlInput(e.target.value); setUrlError(""); }}
+                            onKeyDown={e => e.key === "Enter" && status !== "scanning" && handleUrlScan()}
+                            placeholder="https://www.flipkart.com/search?q=laptop"
+                            disabled={status === "scanning"}
+                            className="w-full pl-9 pr-4 py-3 rounded-xl bg-white/[0.04] border border-white/10 text-sm text-white/80
+                                       placeholder:text-white/20 focus:outline-none focus:border-neon-purple/40 focus:bg-white/[0.06] transition-all
+                                       disabled:opacity-50"
+                          />
+                        </div>
+                        {/* Real-time URL type badge */}
+                        {urlInput.trim() && (() => {
+                          const cls = classifyUrl(urlInput);
+                          if (!cls) return null;
+                          const styles = {
+                            public:    "bg-green-500/10 border-green-500/25 text-green-400",
+                            protected: "bg-red-500/10 border-red-500/25 text-red-400",
+                            unknown:   "bg-white/5 border-white/10 text-white/30",
+                          };
+                          const icons = { public: "✓", protected: "⚠", unknown: "?" };
+                          return (
+                            <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-semibold ${styles[cls.type]}`}>
+                              <span>{icons[cls.type]}</span>
+                              {cls.label}
+                              {cls.type === "protected" && (
+                                <span className="font-normal opacity-70">— use Upload Screenshots instead</span>
+                              )}
+                            </motion.div>
+                          );
+                        })()}
                       </div>
 
                       {urlError && (
@@ -899,19 +1063,28 @@ export default function App() {
                         </motion.p>
                       )}
 
-                      {/* Supported platforms */}
-                      <div className="flex flex-wrap gap-1.5">
-                        {SUPPORTED_PLATFORMS.map(p => (
-                          <span key={p} className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/8 text-white/30">
-                            {p}
-                          </span>
-                        ))}
+                      {/* Sample URLs */}
+                      <div>
+                        <p className="text-[10px] text-white/20 uppercase tracking-wider mb-2">Try one of these public pages:</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {SAMPLE_URLS.map(s => (
+                            <button
+                              key={s.url}
+                              onClick={() => { setUrlInput(s.url); setUrlError(""); }}
+                              className="text-[10px] px-2.5 py-1 rounded-full bg-neon-blue/5 border border-neon-blue/15
+                                         text-neon-blue/60 hover:bg-neon-blue/10 hover:text-neon-blue/80 hover:border-neon-blue/25
+                                         transition-all"
+                            >
+                              {s.platform} · {s.label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
 
                       <motion.button
                         whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                         onClick={handleUrlScan}
-                        disabled={status === "scanning" || !urlInput.trim()}
+                        disabled={status === "scanning" || !urlInput.trim() || classifyUrl(urlInput)?.type === "protected"}
                         className="w-full py-3.5 rounded-xl bg-gradient-to-r from-neon-purple to-neon-blue font-semibold text-sm
                                    text-white flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-neon-purple/25
                                    transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -935,9 +1108,52 @@ export default function App() {
                 )}
 
                 {status === "error" && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card border-red-500/20 p-4">
-                    <p className="text-red-400 text-sm">{error}</p>
-                    <button onClick={reset} className="mt-2 text-xs text-white/40 underline hover:text-white/70 transition">Try again</button>
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+                    {errorMeta?.error_type === "login_wall" ? (
+                      /* ── Login Wall specific error ── */
+                      <div className="glass-card border-amber-500/20 p-5 space-y-3">
+                        <div className="flex items-start gap-3">
+                          <div className="rounded-lg bg-amber-500/10 p-2 shrink-0">
+                            <Shield size={18} className="text-amber-400" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-amber-400 mb-1">Login Required</p>
+                            <p className="text-xs text-white/45 leading-relaxed">{error}</p>
+                          </div>
+                        </div>
+                        {errorMeta.hint && (
+                          <div className="rounded-lg bg-neon-blue/5 border border-neon-blue/10 p-3">
+                            <p className="text-[11px] text-neon-blue/70 leading-relaxed">
+                              💡 {errorMeta.hint}
+                            </p>
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-[10px] text-white/20 uppercase tracking-wider mb-2">Try one of these public pages:</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {SAMPLE_URLS.map(s => (
+                              <button
+                                key={s.url}
+                                onClick={() => { setUrlInput(s.url); setUrlError(""); reset(); }}
+                                className="text-[10px] px-2.5 py-1 rounded-full bg-neon-blue/5 border border-neon-blue/15
+                                           text-neon-blue/60 hover:bg-neon-blue/10 hover:text-neon-blue/80 transition-all"
+                              >
+                                {s.platform} · {s.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <button onClick={reset} className="text-xs text-white/30 underline hover:text-white/60 transition">
+                          Try a different URL
+                        </button>
+                      </div>
+                    ) : (
+                      /* ── Generic error ── */
+                      <div className="glass-card border-red-500/20 p-4">
+                        <p className="text-red-400 text-sm">{error}</p>
+                        <button onClick={reset} className="mt-2 text-xs text-white/40 underline hover:text-white/70 transition">Try again</button>
+                      </div>
+                    )}
                   </motion.div>
                 )}
 
@@ -960,11 +1176,12 @@ export default function App() {
                 )}
               </div>
 
-              {/* ── Community Trust Index ── */}
+              {/* ── Community Trust Index + Innovation Showcase ── */}
               {status === "idle" && (
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.85 }} className="max-w-xl mx-auto mt-8">
+                  transition={{ delay: 0.85 }} className="max-w-xl mx-auto mt-8 space-y-5">
                   <CommunityTrustIndex />
+                  <InnovationShowcase />
                 </motion.div>
               )}
             </>
