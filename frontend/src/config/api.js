@@ -16,10 +16,12 @@ function withBase(path) {
 
 export const API_ENDPOINTS = {
   ANALYZE: withBase("/api/analyze/image"),
+  ANALYZE_URL: withBase("/api/analyze/url"),
   BATCH_ANALYZE: withBase("/api/batch/analyze"),
   EXPORT_REPORT: withBase("/api/reports/export"),
   RESEARCH_CONTRIBUTE: withBase("/api/research/contribute"),
   ADMIN_ANALYTICS: withBase("/api/admin/analytics"),
+  LEADERBOARD: withBase("/api/leaderboard"),
   HEALTH: withBase("/api/health"),
 };
 

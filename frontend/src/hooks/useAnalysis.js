@@ -239,6 +239,38 @@ export function useAnalysis() {
     }
   }, []);
 
+  const analyzeUrl = useCallback(async (url) => {
+    if (!url) return;
+
+    setStatus("scanning");
+    setResult(null);
+    setCrossImage(null);
+    setError(null);
+    setScanProgress({ current: 1, total: 1 });
+
+    try {
+      const response = await axios.post("/api/analyze/url", { url }, {
+        headers: { "Content-Type": "application/json" },
+        timeout: 90000, // URL crawling takes longer
+      });
+
+      const payload = response.data;
+      const normalized =
+        payload && typeof payload === "object" && payload.data && typeof payload.data === "object"
+          ? payload.data
+          : payload;
+
+      setResult({ ...normalized, _images_analyzed: 1 });
+      setStatus("complete");
+      return normalized;
+    } catch (err) {
+      const msg = err.response?.data?.detail || err.message || "URL analysis failed. Please try again.";
+      setError(msg);
+      setStatus("error");
+      throw err;
+    }
+  }, []);
+
   const reset = useCallback(() => {
     setStatus("idle");
     setResult(null);
@@ -247,5 +279,5 @@ export function useAnalysis() {
     setScanProgress({ current: 0, total: 0 });
   }, []);
 
-  return { status, result, crossImage, error, scanProgress, analyzeImages, reset };
+  return { status, result, crossImage, error, scanProgress, analyzeImages, analyzeUrl, reset };
 }

@@ -247,6 +247,189 @@ async def contribute_to_corpus(contribution_data: dict):
         raise HTTPException(status_code=500, detail=f"Contribution failed: {str(e)}")
 
 
+@router.post("/analyze/url")
+async def analyze_url_endpoint(url_data: dict):
+    """
+    Analyze a live URL by auto-crawling and screenshotting it.
+
+    Pipeline:
+    Stage 1: Validate URL (allowlist check)
+    Stage 2: Crawl with Playwright → screenshot
+    Stage 3: Send screenshot to Gemini (vision_analyzer)
+    Stage 4: Enrich patterns with CCPA taxonomy
+    Stage 5: Compute manipulation score
+    Stage 6: Return response
+
+    Input:
+    { "url": "https://flipkart.com/..." }
+    """
+    url = str(url_data.get("url", "") or "").strip()
+
+    if not url:
+        raise HTTPException(status_code=400, detail="URL is required")
+
+    from services.crawler import crawl_and_screenshot, is_url_allowed, ALLOWED_DOMAINS
+
+    if not is_url_allowed(url):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Only these platforms are supported: {', '.join(sorted(ALLOWED_DOMAINS))}",
+        )
+
+    print(f"\n{'='*50}")
+    print(f"[DarkLens API] URL analysis request: {url}")
+
+    # ── Stage 2: Crawl ──
+    try:
+        image_bytes = await crawl_and_screenshot(url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"[DarkLens API] Crawl failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to crawl URL: {str(e)}")
+
+    if not image_bytes:
+        raise HTTPException(status_code=500, detail="Failed to capture screenshot from URL")
+
+    print(f"[DarkLens API] Screenshot captured ({len(image_bytes) / 1024:.1f} KB), analyzing...")
+
+    # ── Stage 3: Gemini Analysis ──
+    vision_result = await analyze_screenshot(image_bytes, "image/jpeg")
+    if vision_result["status"] == "error":
+        raise HTTPException(status_code=500, detail=f"AI analysis failed: {vision_result.get('error')}")
+
+    raw_data = vision_result["data"]
+
+    # ── Stage 4: Enrich patterns ──
+    raw_patterns = raw_data.get("patterns_detected", []) or []
+    enriched_patterns = enrich_patterns(raw_patterns)
+
+    # ── Stage 5: Compute score ──
+    hidden_costs = raw_data.get("hidden_costs", []) or []
+    score_data = compute_score(enriched_patterns, hidden_costs)
+
+    analysis_id = f"da_{uuid.uuid4().hex[:12]}"
+
+    response = {
+        "status": "complete",
+        "analysis_id": analysis_id,
+        "source_url": url,
+        "platform_detected": raw_data.get("platform_detected", "Unknown"),
+        "page_type": raw_data.get("page_type", "unknown"),
+        "timestamp": datetime.now().isoformat(),
+        "patterns_detected": enriched_patterns,
+        "total_patterns_found": len(enriched_patterns),
+        "categories_violated": score_data["categories_violated"],
+        "hidden_costs": hidden_costs,
+        "estimated_overcharge": score_data["estimated_overcharge"],
+        "manipulation_score": score_data["manipulation_score"],
+        "grade": score_data["grade"],
+        "grade_label": score_data["grade_label"],
+        "grade_color": score_data["grade_color"],
+        "summary": raw_data.get("summary", "Analysis complete."),
+    }
+
+    print(f"[DarkLens API] ✅ URL Analysis complete: {analysis_id}")
+    print(f"  Score: {response['manipulation_score']}/100 ({response['grade']})")
+    print(f"{'='*50}\n")
+
+    return response
+
+
+@router.get("/leaderboard")
+async def get_leaderboard():
+    """
+    Get community-powered platform manipulation leaderboard.
+
+    Reads from the contributed research corpus (pattern_corpus.jsonl) and
+    aggregates average manipulation scores per platform.
+
+    Returns:
+    {
+        "status": "success",
+        "total_platforms": N,
+        "total_analyses": N,
+        "leaderboard": [
+            { "platform": "Flipkart", "avg_manipulation_score": 72.5, "grade": "D", ... },
+            ...
+        ]
+    }
+    """
+    corpus_path = os.path.join(os.path.dirname(__file__), "..", "data", "pattern_corpus.jsonl")
+
+    platform_stats: dict = {}
+
+    try:
+        if os.path.exists(corpus_path):
+            with open(corpus_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                        platform = entry.get("platform_detected", "Unknown")
+                        if not platform or platform in ("Unknown", "unknown", ""):
+                            continue
+                        score = float(entry.get("manipulation_score", 0))
+                        patterns = int(entry.get("pattern_count", 0))
+                        categories = entry.get("categories_violated", [])
+
+                        if platform not in platform_stats:
+                            platform_stats[platform] = {
+                                "scores": [],
+                                "patterns": [],
+                                "categories": set(),
+                            }
+
+                        platform_stats[platform]["scores"].append(score)
+                        platform_stats[platform]["patterns"].append(patterns)
+                        platform_stats[platform]["categories"].update(
+                            c for c in categories if isinstance(c, (int, float))
+                        )
+                    except Exception:
+                        continue
+    except Exception as e:
+        print(f"[Leaderboard] Error reading corpus: {e}")
+
+    def _grade(s: float) -> str:
+        if s < 20:
+            return "A"
+        if s < 40:
+            return "B"
+        if s < 60:
+            return "C"
+        if s < 80:
+            return "D"
+        return "F"
+
+    leaderboard = []
+    for platform, stats in platform_stats.items():
+        n = len(stats["scores"])
+        if n == 0:
+            continue
+        avg_score = sum(stats["scores"]) / n
+        avg_patterns = sum(stats["patterns"]) / len(stats["patterns"])
+        leaderboard.append({
+            "platform": platform,
+            "avg_manipulation_score": round(avg_score, 1),
+            "avg_patterns": round(avg_patterns, 1),
+            "total_analyses": n,
+            "grade": _grade(avg_score),
+            "categories_count": len(stats["categories"]),
+        })
+
+    leaderboard.sort(key=lambda x: x["avg_manipulation_score"], reverse=True)
+
+    return {
+        "status": "success",
+        "total_platforms": len(leaderboard),
+        "total_analyses": sum(p["total_analyses"] for p in leaderboard),
+        "leaderboard": leaderboard[:10],
+        "generated_at": datetime.now().isoformat(),
+    }
+
+
 @router.post("/batch/analyze")
 async def analyze_batch_urls(batch_data: dict):
     """
