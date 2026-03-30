@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DarkLens Result</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="results-body">
+    <main class="results-wrap">
+      <header class="results-header">
+        <h1>DarkLens Analysis Report</h1>
+        <p id="metaText">Waiting for analysis data...</p>
+      </header>
+
+      <section class="metrics-grid">
+        <article class="metric-card">
+          <h2>Manipulation Score</h2>
+          <p id="scoreValue" class="metric-value">-</p>
+          <p id="gradeValue" class="metric-sub">-</p>
+        </article>
+        <article class="metric-card">
+          <h2>Total Patterns</h2>
+          <p id="patternsValue" class="metric-value">-</p>
+        </article>
+        <article class="metric-card">
+          <h2>Estimated Overcharge</h2>
+          <p id="costValue" class="metric-value">-</p>
+        </article>
+      </section>
+
+      <section class="panel">
+        <h2>Summary</h2>
+        <p id="summaryText" class="summary">No summary available.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Detected Patterns</h2>
+        <div id="patternsList" class="list"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Hidden Costs</h2>
+        <div id="costsList" class="list"></div>
+      </section>
+    </main>
+
+    <script type="module" src="results.js"></script>
+  </body>
+</html>

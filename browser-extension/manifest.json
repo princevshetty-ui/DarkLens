@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "DarkLens Quick Analyze",
+  "description": "Capture the current page, run DarkLens analysis, and open results in a new tab.",
+  "version": "1.0.0",
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "storage",
+    "debugger"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "action": {
+    "default_title": "DarkLens",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["results.html", "results.js", "styles.css"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
