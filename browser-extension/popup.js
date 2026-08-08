@@ -1,9 +1,10 @@
-const DEFAULT_API_BASE = "http://127.0.0.1:8000";
+const DEFAULT_LOCAL_API_BASE = "http://127.0.0.1:8000";
 
 const authGate = document.getElementById("authGate");
 const analyzePanel = document.getElementById("analyzePanel");
 const statusText = document.getElementById("statusText");
 const userPill = document.getElementById("userPill");
+const devSettings = document.getElementById("devSettings");
 
 const nameInput = document.getElementById("nameInput");
 const emailInput = document.getElementById("emailInput");
@@ -21,7 +22,7 @@ function setStatus(message, isError = false) {
 
 function setLoading(isLoading) {
   analyzeBtn.disabled = isLoading;
-  analyzeBtn.textContent = isLoading ? "Analyzing..." : "Analyze This Page";
+  analyzeBtn.textContent = isLoading ? "Analyzing..." : "Analyze This Page Manually";
 }
 
 function renderAuth(profile) {
@@ -37,8 +38,15 @@ function renderAuth(profile) {
 }
 
 async function loadState() {
-  const { userProfile, apiBaseUrl } = await chrome.storage.local.get(["userProfile", "apiBaseUrl"]);
-  apiBaseInput.value = apiBaseUrl || DEFAULT_API_BASE;
+  const { userProfile, apiBaseUrl, devMode } = await chrome.storage.local.get(["userProfile", "apiBaseUrl", "devMode"]);
+
+  if (devMode) {
+    devSettings.classList.remove("hidden");
+    apiBaseInput.value = apiBaseUrl || DEFAULT_LOCAL_API_BASE;
+  } else {
+    devSettings.classList.add("hidden");
+  }
+
   renderAuth(userProfile || null);
 }
 
@@ -63,7 +71,7 @@ loginBtn.addEventListener("click", async () => {
 });
 
 saveApiBtn.addEventListener("click", async () => {
-  const apiBaseUrl = apiBaseInput.value.trim() || DEFAULT_API_BASE;
+  const apiBaseUrl = apiBaseInput.value.trim() || DEFAULT_LOCAL_API_BASE;
   if (!/^https?:\/\//i.test(apiBaseUrl)) {
     setStatus("API URL must start with http:// or https://", true);
     return;

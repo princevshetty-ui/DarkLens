@@ -9,8 +9,11 @@
   <body class="popup-body">
     <main class="popup-wrap">
       <section class="card">
-        <h1 class="brand">DarkLens Extension</h1>
-        <p class="sub">Capture page. Detect dark patterns. Open report.</p>
+        <h1 class="brand">🔍 DarkLens</h1>
+        <p class="sub">Detect dark patterns in checkout flows</p>
+        <div class="microcopy-box">
+          <strong>How it works:</strong> Sign in below. DarkLens scans checkout pages automatically and opens the report from the toolbar icon.
+        </div>
 
         <div id="authGate" class="stack">
           <h2 class="section-title">Sign In</h2>
@@ -24,11 +27,20 @@
             <span class="pill" id="userPill">Signed in</span>
           </div>
 
-          <label class="label" for="apiBaseInput">Backend API Base URL</label>
-          <input id="apiBaseInput" class="input" type="url" placeholder="http://127.0.0.1:8000" />
-          <button id="saveApiBtn" class="btn btn-secondary">Save API URL</button>
+          <p class="microcopy">
+            ✓ Passive scanning enabled on checkout/cart/payment pages<br/>
+            ✓ Badge updates automatically<br/>
+            ✓ Click badge to view full report
+          </p>
 
-          <button id="analyzeBtn" class="btn btn-primary big">Analyze This Page</button>
+          <button id="analyzeBtn" class="btn btn-primary big">Analyze This Page Manually</button>
+
+          <div id="devSettings" class="stack hidden">
+            <label class="label" for="apiBaseInput">Backend API URL (dev only)</label>
+            <input id="apiBaseInput" class="input" type="url" placeholder="http://127.0.0.1:8000" />
+            <button id="saveApiBtn" class="btn btn-secondary">Save URL</button>
+          </div>
+
           <button id="logoutBtn" class="btn btn-secondary">Log Out</button>
         </div>
 

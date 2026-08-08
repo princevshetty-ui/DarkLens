@@ -9,13 +9,18 @@
     "storage",
     "debugger"
   ],
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"]
+    }
+  ],
   "host_permissions": [
     "http://*/*",
     "https://*/*"
   ],
   "action": {
-    "default_title": "DarkLens",
-    "default_popup": "popup.html"
+    "default_title": "DarkLens — Click to view report. Passive scanning on checkout pages."
   },
   "background": {
     "service_worker": "background.js",

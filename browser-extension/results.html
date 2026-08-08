@@ -9,40 +9,65 @@
   <body class="results-body">
     <main class="results-wrap">
       <header class="results-header">
-        <h1>DarkLens Analysis Report</h1>
-        <p id="metaText">Waiting for analysis data...</p>
+        <div class="results-top">
+          <div>
+            <h1>🔍 DarkLens Analysis Report</h1>
+            <p id="metaText">Waiting for analysis data...</p>
+          </div>
+          <div class="results-actions">
+            <button id="shareBtn" class="btn btn-primary" disabled>Share Result</button>
+            <button id="openSetupBtn" class="btn btn-secondary">Sign In / Settings</button>
+          </div>
+        </div>
+        <div id="trustBanner" style="margin-top: 12px; padding: 10px; background: #0d4d0d; border-left: 4px solid #22c55e; border-radius: 4px; font-size: 12px; line-height: 1.5;">
+          <strong>Why trust DarkLens?</strong><br/>
+          ✓ Built on India's CCPA dark pattern guidelines<br/>
+          ✓ Uses Google Gemini vision AI for analysis<br/>
+          ✓ Open-source • Privacy-first • No tracking<br/>
+          <a href="https://github.com/princevshetty-ui/DarkLens" target="_blank" style="color: #4ade80; text-decoration: underline; font-size: 11px;">View on GitHub</a>
+        </div>
       </header>
 
-      <section class="metrics-grid">
-        <article class="metric-card">
-          <h2>Manipulation Score</h2>
-          <p id="scoreValue" class="metric-value">-</p>
-          <p id="gradeValue" class="metric-sub">-</p>
-        </article>
-        <article class="metric-card">
-          <h2>Total Patterns</h2>
-          <p id="patternsValue" class="metric-value">-</p>
-        </article>
-        <article class="metric-card">
-          <h2>Estimated Overcharge</h2>
-          <p id="costValue" class="metric-value">-</p>
-        </article>
+      <section id="emptyState" class="panel empty-state" hidden>
+        <h2>No scan yet</h2>
+        <p>Visit a checkout page to get started. DarkLens will scan automatically, or you can open Sign In / Settings to run a manual scan.</p>
+        <div class="empty-state-actions">
+          <button id="emptyOpenSetupBtn" class="btn btn-primary">Open Sign In / Settings</button>
+        </div>
       </section>
 
-      <section class="panel">
-        <h2>Summary</h2>
-        <p id="summaryText" class="summary">No summary available.</p>
-      </section>
+      <div id="reportContent">
+        <section class="metrics-grid">
+          <article class="metric-card">
+            <h2>Manipulation Score</h2>
+            <p id="scoreValue" class="metric-value">-</p>
+            <p id="gradeValue" class="metric-sub">-</p>
+          </article>
+          <article class="metric-card">
+            <h2>Total Patterns</h2>
+            <p id="patternsValue" class="metric-value">-</p>
+          </article>
+          <article class="metric-card">
+            <h2>Estimated Overcharge</h2>
+            <p id="costValue" class="metric-value">-</p>
+          </article>
+        </section>
 
-      <section class="panel">
-        <h2>Detected Patterns</h2>
-        <div id="patternsList" class="list"></div>
-      </section>
+        <section class="panel">
+          <h2>Summary</h2>
+          <p id="summaryText" class="summary">No summary available.</p>
+        </section>
 
-      <section class="panel">
-        <h2>Hidden Costs</h2>
-        <div id="costsList" class="list"></div>
-      </section>
+        <section class="panel">
+          <h2>Detected Patterns</h2>
+          <div id="patternsList" class="list"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Hidden Costs</h2>
+          <div id="costsList" class="list"></div>
+        </section>
+      </div>
     </main>
 
     <script type="module" src="results.js"></script>

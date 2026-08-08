@@ -144,6 +144,36 @@ body {
   gap: 16px;
 }
 
+.results-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.results-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.microcopy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.microcopy-box {
+  margin-bottom: 12px;
+  padding: 8px;
+  border-radius: 8px;
+  background: #1a1a2e;
+  color: #666;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .results-header h1 {
   margin: 0;
   font-size: 1.6rem;
@@ -185,6 +215,23 @@ body {
 
 .panel {
   padding: 14px;
+}
+
+.empty-state h2 {
+  margin: 0;
+}
+
+.empty-state p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.empty-state-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .panel h2 {
@@ -229,9 +276,17 @@ body {
   line-height: 1.42;
 }
 
+#reportContent[hidden] {
+  display: none;
+}
+
 @media (max-width: 860px) {
   .metrics-grid {
     grid-template-columns: 1fr;
+  }
+
+  .results-top {
+    flex-direction: column;
   }
 
   .results-header h1 {

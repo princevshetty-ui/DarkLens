@@ -1,5 +1,7 @@
-const DEFAULT_API_BASE = "http://127.0.0.1:8000";
+const DEFAULT_PUBLIC_API_BASE = "https://api.darklens.io";
+const DEFAULT_LOCAL_API_BASE = "http://127.0.0.1:8000";
 const DEBUGGER_VERSION = "1.3";
+const BADGE_TEXT = "●";
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -87,10 +89,56 @@ async function checkBackend(apiBaseUrl) {
   }
 }
 
-async function runPageAnalysis() {
-  const [{ userProfile, apiBaseUrl }, activeTab] = await Promise.all([
+function isLocalPage(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
+async function resolveApiBaseUrl(activeTab) {
+  const { apiBaseUrl } = await chrome.storage.local.get(["apiBaseUrl"]);
+
+  if (apiBaseUrl && /^https?:\/\//i.test(apiBaseUrl)) {
+    return apiBaseUrl.trim().replace(/\/$/, "");
+  }
+
+  if (activeTab?.url && isLocalPage(activeTab.url)) {
+    return DEFAULT_LOCAL_API_BASE;
+  }
+
+  return DEFAULT_PUBLIC_API_BASE;
+}
+
+async function updateBadge(score) {
+  if (typeof score !== "number" || Number.isNaN(score)) {
+    await chrome.action.setBadgeText({ text: "" });
+    return;
+  }
+
+  let color = "#22c55e";
+  if (score > 60) {
+    color = "#ef4444";
+  } else if (score > 30) {
+    color = "#facc15";
+  }
+
+  await Promise.all([
+    chrome.action.setBadgeText({ text: BADGE_TEXT }),
+    chrome.action.setBadgeBackgroundColor({ color }),
+  ]);
+}
+
+async function clearBadge() {
+  await chrome.action.setBadgeText({ text: "" });
+}
+
+async function runPageAnalysis(tab, source = "manual") {
+  const [{ userProfile }, activeTab] = await Promise.all([
     chrome.storage.local.get(["userProfile", "apiBaseUrl"]),
-    getActiveTab(),
+    tab ? Promise.resolve(tab) : getActiveTab(),
   ]);
 
   if (!userProfile) {
@@ -105,10 +153,7 @@ async function runPageAnalysis() {
     throw new Error("Open a regular website tab before analyzing.");
   }
 
-  const baseUrl = (apiBaseUrl || DEFAULT_API_BASE).trim().replace(/\/$/, "");
-  if (!/^https?:\/\//i.test(baseUrl)) {
-    throw new Error("Invalid API URL. Use http:// or https:// (example: http://127.0.0.1:8000).");
-  }
+  const baseUrl = await resolveApiBaseUrl(activeTab);
 
   await checkBackend(baseUrl);
 
@@ -124,10 +169,11 @@ async function runPageAnalysis() {
       },
       userProfile,
       capturedAt: new Date().toISOString(),
+      source,
     },
   });
 
-  await chrome.tabs.create({ url: chrome.runtime.getURL("results.html") });
+  await updateBadge(analysis?.manipulation_score);
 }
 
 async function getActiveTab() {
@@ -135,14 +181,32 @@ async function getActiveTab() {
   return tab;
 }
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type !== "START_ANALYSIS") {
-    return false;
+chrome.action.onClicked.addListener(async () => {
+  const { lastAnalysis } = await chrome.storage.local.get(["lastAnalysis"]);
+  const targetPage = lastAnalysis?.analysis ? "results.html" : "popup.html";
+
+  await chrome.tabs.create({ url: chrome.runtime.getURL(targetPage) });
+});
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === "START_ANALYSIS") {
+    runPageAnalysis(sender?.tab, "manual")
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) => sendResponse({ ok: false, error: error.message || "Unknown error" }));
+
+    return true;
   }
 
-  runPageAnalysis()
-    .then(() => sendResponse({ ok: true }))
-    .catch((error) => sendResponse({ ok: false, error: error.message || "Unknown error" }));
+  if (message?.type === "START_PASSIVE_SCAN") {
+    runPageAnalysis(sender?.tab, "passive")
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) => {
+        clearBadge().catch(() => {});
+        sendResponse({ ok: false, error: error.message || "Passive scan failed" });
+      });
 
-  return true;
+    return true;
+  }
+
+  return false;
 });
