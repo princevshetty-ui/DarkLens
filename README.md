@@ -2,11 +2,8 @@
 
 # README.md
 
----
 
 ## Document 1: `README.md`
-
-Place this in the root of your `DarkLens_CAIAS/` repository.
 
 ```markdown
 # 🔍 DarkLens — AI-Powered Dark Pattern Forensics Engine
