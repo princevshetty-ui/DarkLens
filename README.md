@@ -112,9 +112,9 @@ Built at **Hack4Future 2025**, a 24-hour national-level hackathon.
 
 **Team Members:**
 
-- Vishesh Vandan (@princevshetty-ui)
-- Adnan Ashraf (@adnan-ashraf055)
-- Jay Thakkar (@thakkar2005)
+- Vishesh Vandan [![GitHub](https://shields.io)](https://github.com/princevshetty-ui)
+- Adnan Ashraf [![GitHub](https://shields.io)](https://github.com/adnan-ashraf055)
+- Jay Thakkar [![GitHub](https://shields.io)](https://github.com/@thakkar2005)
 - Koushik C
 
 ## 📜 SDG Alignment
