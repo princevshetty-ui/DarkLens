@@ -4,8 +4,12 @@ import {
   Shield, AlertTriangle, DollarSign, Eye, TrendingDown,
   MapPin, CheckCircle, ChevronRight, RotateCcw, ShieldAlert,
   Target, Users, Zap, FileWarning, Layers, ArrowRight, Lightbulb,
-  Download, Share2, Check, X, AlertCircle
+  Download, Share2, Check, X, AlertCircle, Globe, Link, Trophy, TrendingUp
 } from "lucide-react";
+import {
+  Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  ResponsiveContainer, Tooltip
+} from "recharts";
 
 import GlassCard from "./components/layout/GlassCard";
 import UploadZone from "./components/upload/UploadZone";
@@ -14,6 +18,69 @@ import ScoreGauge from "./components/analysis/ScoreGauge";
 import { useAnalysis } from "./hooks/useAnalysis";
 import { API_ENDPOINTS } from "./config/api";
 import { fetchWithRetry, formatErrorMessage } from "./config/apiClient";
+
+// ── CCPA Category Reference (13 categories) ──
+const CCPA_CATEGORIES = [
+  { id: 1,  short: "Urgency",   name: "False Urgency" },
+  { id: 2,  short: "Sneaking",  name: "Basket Sneaking" },
+  { id: 3,  short: "Shaming",   name: "Confirm Shaming" },
+  { id: 4,  short: "Forced",    name: "Forced Action" },
+  { id: 5,  short: "Nagging",   name: "Nagging" },
+  { id: 6,  short: "Sub Trap",  name: "Subscription Trap" },
+  { id: 7,  short: "Interface", name: "Interface Interference" },
+  { id: 8,  short: "Bait",      name: "Bait & Switch" },
+  { id: 9,  short: "Drip",      name: "Drip Pricing" },
+  { id: 10, short: "Disguised", name: "Disguised Ad" },
+  { id: 11, short: "Trick Q",   name: "Trick Question" },
+  { id: 12, short: "Hidden $",  name: "Hidden Costs" },
+  { id: 13, short: "Malware",   name: "Rogue Malware" },
+];
+
+// ── Supported URL platforms ──
+const SUPPORTED_PLATFORMS = ["flipkart.com", "amazon.in", "amazon.com", "myntra.com", "meesho.com", "snapdeal.com", "paytm.com"];
+
+// ── Sample public URLs that work without login ──
+const SAMPLE_URLS = [
+  { platform: "Flipkart", url: "https://www.flipkart.com/search?q=laptop", label: "Laptop Search" },
+  { platform: "Amazon.in", url: "https://www.amazon.in/s?k=headphones", label: "Headphone Search" },
+  { platform: "Myntra", url: "https://www.myntra.com/shirts", label: "Shirts Category" },
+  { platform: "Meesho", url: "https://meesho.com/earrings", label: "Earrings Category" },
+  { platform: "Snapdeal", url: "https://www.snapdeal.com/products/mobiles-mobile-phones", label: "Mobiles" },
+];
+
+// ── URL Type Classifier ──
+// Returns { type: "public"|"protected"|"unknown", label, color }
+function classifyUrl(url) {
+  if (!url || !url.trim()) return null;
+  const lower = url.toLowerCase();
+
+  // Protected paths — these require login
+  const protectedTokens = [
+    "/cart", "/checkout", "/buy/", "/order/", "/orders",
+    "/account/", "/profile", "/wishlist", "/my-",
+    "ap/signin", "/signin", "/login", "/sign-in",
+  ];
+  for (const t of protectedTokens) {
+    if (lower.includes(t)) {
+      return { type: "protected", label: "Requires Login", color: "red" };
+    }
+  }
+
+  // Public paths — product listings, search, categories
+  const publicTokens = [
+    "/search", "/s?", "?q=", "?query=", "?k=",
+    "/dp/", "/itm/", "/product/", "/p/",
+    "/browse", "/category/", "/c/",
+    "/mobiles", "/phones", "/laptops", "/shirts", "/shoes", "/earrings",
+  ];
+  for (const t of publicTokens) {
+    if (lower.includes(t)) {
+      return { type: "public", label: "Public Page ✓", color: "green" };
+    }
+  }
+
+  return { type: "unknown", label: "Unknown page type", color: "gray" };
+}
 
 // ── Typing Effect ──
 function TypingText({ text, speed = 18, delay = 0, className = "" }) {
@@ -349,17 +416,297 @@ function EnhancedPatternCard({ pattern, index }) {
 }
 
 
+
+
+// ── Innovation Showcase ──
+const INNOVATION_ITEMS = [
+  {
+    emoji: "🔬",
+    title: "AI Forensics",
+    desc: "Gemini Vision reads screenshots like a forensic expert, classifying dark patterns under India's CCPA 2023 — a first for Indian consumers.",
+    titleClass: "text-neon-blue/80",
+  },
+  {
+    emoji: "🧬",
+    title: "Manipulation DNA",
+    desc: "Every platform leaves a unique 13-category fingerprint. No other tool visualises manipulation as a radar signature.",
+    titleClass: "text-neon-purple/80",
+  },
+  {
+    emoji: "🌍",
+    title: "Community Index",
+    desc: "Crowd-sourced trust scores for Indian e-commerce platforms — building India's first public dark pattern database.",
+    titleClass: "text-neon-green/80",
+  },
+];
+
+const ROADMAP_ITEMS = [
+  { emoji: "🔌", title: "Browser Extension", desc: "Real-time dark pattern overlay as you shop — highlights manipulation the moment it appears." },
+  { emoji: "⚖️", title: "Legal Action Guide", desc: "Auto-generate a CCPA complaint letter from your analysis in one click." },
+  { emoji: "🔍", title: "Comparison Mode", desc: "Compare two platforms side-by-side to see which is more manipulative." },
+  { emoji: "📱", title: "Mobile App", desc: "Scan with your phone camera directly — no screenshots, no uploads." },
+];
+
+function InnovationShowcase() {
+  const [showRoadmap, setShowRoadmap] = useState(false);
+  const colorMap = { blue: "neon-blue", purple: "neon-purple", green: "neon-green" };
+
+  return (
+    <GlassCard className="p-6">
+      <div className="flex items-center gap-2 mb-1">
+        <Zap size={16} className="text-yellow-400 icon-bounce" />
+        <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-white/35">What Makes DarkLens Different</h3>
+      </div>
+      <p className="text-[11px] text-white/20 mb-5">
+        Three capabilities that no other Indian consumer tool offers today
+      </p>
+
+      <div className="space-y-3 mb-5">
+        {INNOVATION_ITEMS.map(item => (
+          <div key={item.title} className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+            <span className="text-xl shrink-0 mt-0.5">{item.emoji}</span>
+            <div>
+              <p className={`text-sm font-semibold text-${colorMap[item.color]}/80 mb-0.5`}>{item.title}</p>
+              <p className="text-xs text-white/35 leading-relaxed">{item.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button
+        onClick={() => setShowRoadmap(r => !r)}
+        className="flex items-center gap-2 text-xs text-white/30 hover:text-white/60 transition-colors"
+      >
+        <TrendingUp size={12} />
+        {showRoadmap ? "Hide" : "Show"} Innovation Roadmap
+      </button>
+
+      <AnimatePresence>
+        {showRoadmap && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="overflow-hidden"
+          >
+            <div className="mt-4 pt-4 border-t border-white/5 grid grid-cols-2 gap-2.5">
+              {ROADMAP_ITEMS.map(item => (
+                <div key={item.title} className="flex items-start gap-2 p-2.5 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                  <span className="text-base shrink-0">{item.emoji}</span>
+                  <div>
+                    <p className="text-[11px] font-semibold text-white/50">{item.title}</p>
+                    <p className="text-[10px] text-white/20 leading-relaxed mt-0.5">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </GlassCard>
+  );
+}
+
+// ── Radar Tooltip for Manipulation DNA ──
+function RadarTooltip({ active, payload }) {
+  if (active && payload && payload.length) {
+    const dataPoint = payload[0].payload;
+    const label = dataPoint.score === 3 ? "VIOLATION" : dataPoint.score === 2 ? "CAUTION" : dataPoint.score === 1 ? "FAIR" : "Clean";
+    const color = dataPoint.score === 3 ? "#ef4444" : dataPoint.score === 2 ? "#eab308" : dataPoint.score === 1 ? "#22c55e" : "#ffffff30";
+    return (
+      <div className="bg-dark-900/95 border border-white/10 rounded-lg px-3 py-2 text-xs shadow-xl">
+        <p className="text-white/60 mb-0.5">{dataPoint.fullName}</p>
+        <p style={{ color }} className="font-bold">{label}</p>
+      </div>
+    );
+  }
+  return null;
+}
+
+// ── Manipulation DNA Radar Chart ──
+function ManipulationDNA({ patterns }) {
+  const severityValue = { VIOLATION: 3, CAUTION: 2, FAIR: 1 };
+
+  // Build per-category max severity
+  const catMap = {};
+  (patterns || []).forEach(p => {
+    const id = p.ccpa_category_id;
+    const val = severityValue[p.severity] || 1;
+    if (!catMap[id] || val > catMap[id]) catMap[id] = val;
+  });
+
+  const data = CCPA_CATEGORIES.map(cat => ({
+    subject: cat.short,
+    fullName: cat.name,
+    score: catMap[cat.id] || 0,
+    fullMark: 3,
+  }));
+
+  const hasAny = Object.keys(catMap).length > 0;
+
+  return (
+    <GlassCard className="p-6">
+      <div className="flex items-center gap-2 mb-2">
+        <Target size={16} className="text-neon-purple icon-bounce" />
+        <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-white/35">Manipulation DNA</h3>
+        <span className="text-[10px] px-2 py-0.5 rounded-full bg-neon-purple/10 text-neon-purple border border-neon-purple/20 ml-auto">
+          13-Category Fingerprint
+        </span>
+      </div>
+      <p className="text-[11px] text-white/25 mb-4">
+        Visual signature of which CCPA dark pattern types this interface uses
+      </p>
+
+      {hasAny ? (
+        <ResponsiveContainer width="100%" height={260}>
+          <RadarChart data={data} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
+            <PolarGrid stroke="rgba(255,255,255,0.07)" />
+            <PolarAngleAxis
+              dataKey="subject"
+              tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 10, fontFamily: "Inter, sans-serif" }}
+            />
+            <PolarRadiusAxis
+              angle={90} domain={[0, 3]} tick={false} axisLine={false}
+              tickCount={4}
+            />
+            <Radar
+              name="Severity"
+              dataKey="score"
+              stroke="#a855f7"
+              fill="#a855f7"
+              fillOpacity={0.18}
+              strokeWidth={1.5}
+            />
+            <Tooltip content={<RadarTooltip />} />
+          </RadarChart>
+        </ResponsiveContainer>
+      ) : (
+        <div className="flex flex-col items-center justify-center h-[260px] gap-3">
+          <CheckCircle size={32} className="text-neon-green/40" />
+          <p className="text-sm text-white/25">No manipulation patterns detected</p>
+        </div>
+      )}
+
+      {/* Legend */}
+      <div className="flex items-center justify-center gap-5 mt-2">
+        {[{ color: "#ef4444", label: "Violation" }, { color: "#eab308", label: "Caution" }, { color: "#22c55e", label: "Fair" }].map(legendItem => (
+          <div key={legendItem.label} className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: legendItem.color }} />
+            <span className="text-[10px] text-white/30">{legendItem.label}</span>
+          </div>
+        ))}
+      </div>
+    </GlassCard>
+  );
+}
+
+// ── Community Platform Trust Index ──
+function CommunityTrustIndex() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(API_ENDPOINTS.LEADERBOARD)
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(json => setData(json))
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const gradeColor = grade => ({ A: "#22c55e", B: "#84cc16", C: "#eab308", D: "#f97316", F: "#ef4444" }[grade] || "#ffffff50");
+
+  if (loading) {
+    return (
+      <GlassCard className="p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Trophy size={16} className="text-yellow-400" />
+          <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-white/35">Community Trust Index</h3>
+        </div>
+        <div className="space-y-2">
+          {[1,2,3].map(index => (
+            <div key={index} className="h-10 rounded-xl bg-white/[0.03] animate-pulse" />
+          ))}
+        </div>
+      </GlassCard>
+    );
+  }
+
+  if (!data || !data.leaderboard || data.leaderboard.length === 0) {
+    return (
+      <GlassCard className="p-6">
+        <div className="flex items-center gap-2 mb-3">
+          <Trophy size={16} className="text-yellow-400" />
+          <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-white/35">Community Trust Index</h3>
+        </div>
+        <div className="flex flex-col items-center gap-3 py-4">
+          <TrendingUp size={28} className="text-white/15" />
+          <p className="text-sm text-white/25 text-center">
+            No community data yet. Be the first to contribute your analysis!
+          </p>
+        </div>
+      </GlassCard>
+    );
+  }
+
+  return (
+    <GlassCard className="p-6">
+      <div className="flex items-center gap-2 mb-1">
+        <Trophy size={16} className="text-yellow-400 icon-bounce" />
+        <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-white/35">Community Trust Index</h3>
+        <span className="ml-auto text-[10px] text-white/20">{data.total_analyses} scan{data.total_analyses !== 1 ? "s" : ""}</span>
+      </div>
+      <p className="text-[11px] text-white/20 mb-4">Crowd-sourced manipulation scores from DarkLens users</p>
+
+      <div className="space-y-2.5">
+        {data.leaderboard.map((platform, index) => (
+          <motion.div
+            key={platform.platform}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.07 }}
+            className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.05] transition-colors"
+          >
+            <span className="text-xs font-bold text-white/20 w-4 shrink-0">#{index + 1}</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-white/70 truncate">{platform.platform}</p>
+              <p className="text-[10px] text-white/25">{platform.total_analyses} scan{platform.total_analyses !== 1 ? "s" : ""} · {platform.avg_patterns} avg patterns</p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-sm font-bold" style={{ color: gradeColor(platform.grade) }}>{platform.avg_manipulation_score}</p>
+              <p className="text-[9px] uppercase tracking-wider" style={{ color: gradeColor(platform.grade) }}>Grade {platform.grade}</p>
+            </div>
+            <div className="w-16 h-1.5 bg-white/5 rounded-full overflow-hidden shrink-0">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${platform.avg_manipulation_score}%` }}
+                transition={{ delay: 0.3 + index * 0.07, duration: 0.7 }}
+                className="h-full rounded-full"
+                style={{ backgroundColor: gradeColor(platform.grade) + "80" }}
+              />
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </GlassCard>
+  );
+}
+
+
 // ═════════════════════════════════════════
 // MAIN APP
 // ═════════════════════════════════════════
 
 export default function App() {
-  const { status, result, crossImage, error, scanProgress, analyzeImages, reset } = useAnalysis();
+  const { status, result, crossImage, error, errorMeta, scanProgress, analyzeImages, analyzeUrl, reset } = useAnalysis();
   const [toast, setToast] = useState(null);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showResearchConsent, setShowResearchConsent] = useState(false);
   const [researchConsent, setResearchConsent] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [inputMode, setInputMode] = useState("upload"); // "upload" | "url"
+  const [urlInput, setUrlInput] = useState("");
+  const [urlError, setUrlError] = useState("");
 
   const analysisResult = result || null;
   const fallbackSummaryMessage = "Analysis could not be completed. Please try again with a clearer screenshot.";
@@ -397,6 +744,26 @@ export default function App() {
       // Error state is already managed inside the analysis hook.
     }
   }, [analyzeImages]);
+
+  const handleUrlScan = useCallback(async () => {
+    const url = urlInput.trim();
+    if (!url) {
+      setUrlError("Please enter a URL to scan.");
+      return;
+    }
+    const isAllowed = SUPPORTED_PLATFORMS.some(d => url.toLowerCase().includes(d));
+    if (!isAllowed) {
+      setUrlError(`Supported platforms: ${SUPPORTED_PLATFORMS.join(", ")}`);
+      return;
+    }
+    setUrlError("");
+    try {
+      await analyzeUrl(url);
+      setToast({ type: "success", message: "URL Analysis Complete ✅" });
+    } catch {
+      // Error state managed in hook
+    }
+  }, [urlInput, analyzeUrl]);
 
   const handleExportReport = useCallback(async (format = "json") => {
     if (!analysisResult) return;
@@ -592,19 +959,201 @@ export default function App() {
                 </motion.h2>
                 <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
                   className="text-base text-white/35 max-w-2xl mx-auto leading-relaxed">
-                  Upload 1–3 checkout screenshots. Our AI forensic engine detects dark patterns,
-                  classifies them against India's CCPA 2023 guidelines, and identifies cross-screen manipulation.
+                  Upload 1–3 checkout screenshots <span className="text-white/50">or paste a live URL</span>.
+                  Our AI forensic engine detects dark patterns, classifies them against India's CCPA 2023 guidelines,
+                  and identifies cross-screen manipulation.
                 </motion.p>
               </motion.div>
 
               <div className="max-w-xl mx-auto space-y-6">
-                <UploadZone onAnalyze={handleUpload} isAnalyzing={status === "scanning"} scanProgress={scanProgress} />
-                <ScanningOverlay isScanning={status === "scanning"} />
+                {/* ── Input Mode Toggle ── */}
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }}
+                  className="flex rounded-xl border border-white/8 bg-white/[0.03] p-1 gap-1">
+                  <button
+                    onClick={() => setInputMode("upload")}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all ${
+                      inputMode === "upload"
+                        ? "bg-neon-blue/15 border border-neon-blue/25 text-neon-blue"
+                        : "text-white/35 hover:text-white/60"
+                    }`}
+                  >
+                    <Target size={14} /> Upload Screenshots
+                  </button>
+                  <button
+                    onClick={() => setInputMode("url")}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all ${
+                      inputMode === "url"
+                        ? "bg-neon-purple/15 border border-neon-purple/25 text-neon-purple"
+                        : "text-white/35 hover:text-white/60"
+                    }`}
+                  >
+                    <Globe size={14} /> Scan Live URL
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-neon-purple/20 text-neon-purple border border-neon-purple/30 font-semibold">NEW</span>
+                  </button>
+                </motion.div>
+
+                {/* ── Upload Zone ── */}
+                {inputMode === "upload" && (
+                  <>
+                    <UploadZone onAnalyze={handleUpload} isAnalyzing={status === "scanning"} scanProgress={scanProgress} />
+                    <ScanningOverlay isScanning={status === "scanning"} />
+                  </>
+                )}
+
+                {/* ── URL Scanner ── */}
+                {inputMode === "url" && (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+                    <div className="glass-card p-6 space-y-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Globe size={16} className="text-neon-purple" />
+                        <p className="text-sm font-semibold text-white/70">Live URL Scanner</p>
+                      </div>
+
+                      {/* Info box: what pages work */}
+                      <div className="rounded-xl bg-amber-500/5 border border-amber-500/15 p-3">
+                        <p className="text-[11px] text-amber-400/80 leading-relaxed">
+                          <span className="font-semibold">⚡ Important:</span> Cart and checkout pages require login — 
+                          DarkLens can only scan <span className="font-semibold">public pages</span> like search results, 
+                          category pages, and product listings.
+                        </p>
+                      </div>
+
+                      {/* URL Input with live type indicator */}
+                      <div className="space-y-1.5">
+                        <div className="relative">
+                          <Link size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/25" />
+                          <input
+                            type="url"
+                            value={urlInput}
+                            onChange={e => { setUrlInput(e.target.value); setUrlError(""); }}
+                            onKeyDown={e => e.key === "Enter" && status !== "scanning" && handleUrlScan()}
+                            placeholder="https://www.flipkart.com/search?q=laptop"
+                            disabled={status === "scanning"}
+                            className="w-full pl-9 pr-4 py-3 rounded-xl bg-white/[0.04] border border-white/10 text-sm text-white/80
+                                       placeholder:text-white/20 focus:outline-none focus:border-neon-purple/40 focus:bg-white/[0.06] transition-all
+                                       disabled:opacity-50"
+                          />
+                        </div>
+                        {/* Real-time URL type badge */}
+                        {urlInput.trim() && (() => {
+                          const cls = classifyUrl(urlInput);
+                          if (!cls) return null;
+                          const styles = {
+                            public:    "bg-green-500/10 border-green-500/25 text-green-400",
+                            protected: "bg-red-500/10 border-red-500/25 text-red-400",
+                            unknown:   "bg-white/5 border-white/10 text-white/30",
+                          };
+                          const icons = { public: "✓", protected: "⚠", unknown: "?" };
+                          return (
+                            <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-semibold ${styles[cls.type]}`}>
+                              <span>{icons[cls.type]}</span>
+                              {cls.label}
+                              {cls.type === "protected" && (
+                                <span className="font-normal opacity-70">— use Upload Screenshots instead</span>
+                              )}
+                            </motion.div>
+                          );
+                        })()}
+                      </div>
+
+                      {urlError && (
+                        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs text-red-400">
+                          {urlError}
+                        </motion.p>
+                      )}
+
+                      {/* Sample URLs */}
+                      <div>
+                        <p className="text-[10px] text-white/20 uppercase tracking-wider mb-2">Try one of these public pages:</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {SAMPLE_URLS.map(s => (
+                            <button
+                              key={s.url}
+                              onClick={() => { setUrlInput(s.url); setUrlError(""); }}
+                              className="text-[10px] px-2.5 py-1 rounded-full bg-neon-blue/5 border border-neon-blue/15
+                                         text-neon-blue/60 hover:bg-neon-blue/10 hover:text-neon-blue/80 hover:border-neon-blue/25
+                                         transition-all"
+                            >
+                              {s.platform} · {s.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <motion.button
+                        whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                        onClick={handleUrlScan}
+                        disabled={status === "scanning" || !urlInput.trim() || classifyUrl(urlInput)?.type === "protected"}
+                        className="w-full py-3.5 rounded-xl bg-gradient-to-r from-neon-purple to-neon-blue font-semibold text-sm
+                                   text-white flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-neon-purple/25
+                                   transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {status === "scanning" ? (
+                          <>
+                            <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                              className="w-4 h-4 rounded-full border-2 border-white border-t-transparent" />
+                            Crawling & Analyzing…
+                          </>
+                        ) : (
+                          <>
+                            <Globe size={16} />
+                            Scan URL
+                          </>
+                        )}
+                      </motion.button>
+                    </div>
+                    <ScanningOverlay isScanning={status === "scanning"} />
+                  </motion.div>
+                )}
 
                 {status === "error" && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card border-red-500/20 p-4">
-                    <p className="text-red-400 text-sm">{error}</p>
-                    <button onClick={reset} className="mt-2 text-xs text-white/40 underline hover:text-white/70 transition">Try again</button>
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+                    {errorMeta?.error_type === "login_wall" ? (
+                      /* ── Login Wall specific error ── */
+                      <div className="glass-card border-amber-500/20 p-5 space-y-3">
+                        <div className="flex items-start gap-3">
+                          <div className="rounded-lg bg-amber-500/10 p-2 shrink-0">
+                            <Shield size={18} className="text-amber-400" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-amber-400 mb-1">Login Required</p>
+                            <p className="text-xs text-white/45 leading-relaxed">{error}</p>
+                          </div>
+                        </div>
+                        {errorMeta.hint && (
+                          <div className="rounded-lg bg-neon-blue/5 border border-neon-blue/10 p-3">
+                            <p className="text-[11px] text-neon-blue/70 leading-relaxed">
+                              💡 {errorMeta.hint}
+                            </p>
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-[10px] text-white/20 uppercase tracking-wider mb-2">Try one of these public pages:</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {SAMPLE_URLS.map(s => (
+                              <button
+                                key={s.url}
+                                onClick={() => { setUrlInput(s.url); setUrlError(""); reset(); }}
+                                className="text-[10px] px-2.5 py-1 rounded-full bg-neon-blue/5 border border-neon-blue/15
+                                           text-neon-blue/60 hover:bg-neon-blue/10 hover:text-neon-blue/80 transition-all"
+                              >
+                                {s.platform} · {s.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <button onClick={reset} className="text-xs text-white/30 underline hover:text-white/60 transition">
+                          Try a different URL
+                        </button>
+                      </div>
+                    ) : (
+                      /* ── Generic error ── */
+                      <div className="glass-card border-red-500/20 p-4">
+                        <p className="text-red-400 text-sm">{error}</p>
+                        <button onClick={reset} className="mt-2 text-xs text-white/40 underline hover:text-white/70 transition">Try again</button>
+                      </div>
+                    )}
                   </motion.div>
                 )}
 
@@ -613,7 +1162,7 @@ export default function App() {
                     {[
                       { icon: Shield, label: "13 CCPA Categories", desc: "India's legal framework" },
                       { icon: Target, label: "AI Vision Forensics", desc: "Gemini-powered analysis" },
-                      { icon: Layers, label: "Multi-Screen", desc: "Cross-flow detection" },
+                      { icon: Globe, label: "Live URL Scanner", desc: "No screenshots needed" },
                     ].map((f, i) => (
                       <motion.div key={f.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.6 + i * 0.12 }} whileHover={{ scale: 1.03, y: -2 }}
@@ -626,6 +1175,15 @@ export default function App() {
                   </motion.div>
                 )}
               </div>
+
+              {/* ── Community Trust Index + Innovation Showcase ── */}
+              {status === "idle" && (
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.85 }} className="max-w-xl mx-auto mt-8 space-y-5">
+                  <CommunityTrustIndex />
+                  <InnovationShowcase />
+                </motion.div>
+              )}
             </>
           )}
 
@@ -634,18 +1192,29 @@ export default function App() {
             {status === "complete" && analysisResult && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-10">
 
-                {/* Multi-image badge */}
-                {imagesAnalyzed > 1 && (
-                  <RevealSection delay={0}>
-                    <div className="flex justify-center">
+                {/* Multi-image badge or URL source badge */}
+                <RevealSection delay={0}>
+                  <div className="flex justify-center gap-3 flex-wrap">
+                    {imagesAnalyzed > 1 && (
                       <motion.div whileHover={{ scale: 1.05 }}
                         className="flex items-center gap-2 px-4 py-2 rounded-full bg-neon-purple/10 border border-neon-purple/20">
                         <Layers size={14} className="text-neon-purple" />
                         <span className="text-xs font-medium text-neon-purple">{imagesAnalyzed}-Screen Flow Analysis</span>
                       </motion.div>
-                    </div>
-                  </RevealSection>
-                )}
+                    )}
+                    {analysisResult.source_url && (
+                      <motion.div whileHover={{ scale: 1.05 }}
+                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-neon-blue/10 border border-neon-blue/20 max-w-xs">
+                        <Globe size={14} className="text-neon-blue shrink-0" />
+                        <span className="text-xs font-medium text-neon-blue truncate">Live URL Scan</span>
+                        <a href={analysisResult.source_url} target="_blank" rel="noopener noreferrer"
+                          className="text-[10px] text-white/25 hover:text-white/50 transition truncate max-w-[120px]">
+                          {analysisResult.source_url.replace(/^https?:\/\//, "")}
+                        </a>
+                      </motion.div>
+                    )}
+                  </div>
+                </RevealSection>
 
                 {/* ── KEY INSIGHT ── */}
                 {keyInsight && (
@@ -829,30 +1398,8 @@ export default function App() {
                 {/* ── IMPACT + JOURNEY ── */}
                 <RevealSection delay={0.55}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {userImpacts.length > 0 && (
-                      <GlassCard className="p-6 h-full">
-                        <div className="flex items-center gap-2 mb-5">
-                          <Users size={16} className="text-neon-purple icon-bounce" />
-                          <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-white/35">How This Affects You</h3>
-                        </div>
-                        <div className="space-y-3">
-                          {userImpacts.map((imp, i) => (
-                            <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: 0.6 + i * 0.08 }} whileHover={{ scale: 1.01 }}
-                              className={`flex items-start gap-3 p-3 rounded-xl border transition-colors ${
-                                imp.severity === "high" ? "bg-red-500/5 border-red-500/12 hover:bg-red-500/8" :
-                                imp.severity === "medium" ? "bg-yellow-500/5 border-yellow-500/12 hover:bg-yellow-500/8" :
-                                "bg-white/[0.02] border-white/8 hover:bg-white/[0.04]"
-                              }`}>
-                              <imp.icon size={16} className={`mt-0.5 shrink-0 ${
-                                imp.severity === "high" ? "text-red-400" : imp.severity === "medium" ? "text-yellow-400" : "text-white/35"
-                              }`} />
-                              <p className="text-sm text-white/55 leading-relaxed">{imp.text}</p>
-                            </motion.div>
-                          ))}
-                        </div>
-                      </GlassCard>
-                    )}
+                    {/* Manipulation DNA Radar (left column) */}
+                    <ManipulationDNA patterns={analysisResult.patterns_detected || []} />
 
                     <GlassCard className="p-6 h-full">
                       <div className="flex items-center gap-2 mb-5">
@@ -887,6 +1434,34 @@ export default function App() {
                     </GlassCard>
                   </div>
                 </RevealSection>
+
+                {/* ── HOW THIS AFFECTS YOU ── */}
+                {userImpacts.length > 0 && (
+                  <RevealSection delay={0.6}>
+                    <GlassCard className="p-6">
+                      <div className="flex items-center gap-2 mb-5">
+                        <Users size={16} className="text-neon-purple icon-bounce" />
+                        <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-white/35">How This Affects You</h3>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {userImpacts.map((imp, i) => (
+                          <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.65 + i * 0.08 }} whileHover={{ scale: 1.01 }}
+                            className={`flex items-start gap-3 p-3 rounded-xl border transition-colors ${
+                              imp.severity === "high" ? "bg-red-500/5 border-red-500/12 hover:bg-red-500/8" :
+                              imp.severity === "medium" ? "bg-yellow-500/5 border-yellow-500/12 hover:bg-yellow-500/8" :
+                              "bg-white/[0.02] border-white/8 hover:bg-white/[0.04]"
+                            }`}>
+                            <imp.icon size={16} className={`mt-0.5 shrink-0 ${
+                              imp.severity === "high" ? "text-red-400" : imp.severity === "medium" ? "text-yellow-400" : "text-white/35"
+                            }`} />
+                            <p className="text-sm text-white/55 leading-relaxed">{imp.text}</p>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </GlassCard>
+                  </RevealSection>
+                )}
 
                 {/* ── SUGGESTED ACTIONS ── */}
                 {suggestedActions && (
