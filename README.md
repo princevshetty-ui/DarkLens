@@ -6,6 +6,13 @@
 [![Domain](https://img.shields.io/badge/Domain-AI%20%26%20ML-purple)]()
 [![CCPA 2023](https://img.shields.io/badge/Legal%20Basis-CCPA%202023-green)]()
 
+## At a Glance
+
+- **1–3 screenshots** analyzed per submission.
+- Findings mapped against **13 CCPA dark-pattern categories**.
+- Produces a **0–100 manipulation-intensity score** with evidence, confidence levels, and legal references.
+- Built at **Hack4Future 2025**; the team received positive judge feedback.
+
 ---
 
 ## 🎯 Problem Statement
