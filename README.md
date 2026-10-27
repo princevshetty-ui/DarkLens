@@ -1,141 +1,38 @@
-# 🔍 DarkLens — AI-Powered Dark Pattern Forensics Engine
+# DarkLens — AI-Powered Dark Pattern Forensics Engine
 
-> **Upload a checkout screenshot. We'll show you how you're being manipulated.**
+> Analyze checkout screenshots for potential dark patterns, with visible evidence and legal references.
 
-[![Built at Hack4Future 2025](https://img.shields.io/badge/Hack4Future-2025-blue)]()
-[![Domain](https://img.shields.io/badge/Domain-AI%20%26%20ML-purple)]()
-[![CCPA 2023](https://img.shields.io/badge/Legal%20Basis-CCPA%202023-green)]()
+Built at **Hack4Future 2025** by a four-person team; the team received positive judge feedback.
 
-## At a Glance
+## At a glance
 
-- **1–3 screenshots** analyzed per submission.
-- Findings mapped against **13 CCPA dark-pattern categories**.
-- Produces a **0–100 manipulation-intensity score** with evidence, confidence levels, and legal references.
-- Built at **Hack4Future 2025**; the team received positive judge feedback.
+- Accepts **1–3 checkout/UI screenshots** per submission.
+- Maps findings against **13 CCPA dark-pattern categories**.
+- Produces a **0–100 manipulation-intensity score** with confidence levels, visual evidence, and legal references.
+- Compares multiple screenshots for patterns such as price escalation, newly introduced fees, or repeated pressure across screens.
 
----
+## Pipeline
 
-## 🎯 Problem Statement
+1. Upload one to three checkout screenshots.
+2. Gemini 2.0 Flash Vision extracts structured visual findings.
+3. The classifier maps the findings to CCPA categories and validates severity.
+4. A weighted scoring engine calculates a 0–100 manipulation-intensity score.
+5. The result presents findings, evidence, confidence, and legal references.
 
-India became the first country to legally define dark patterns when the **Central Consumer Protection Authority (CCPA)** issued the *Prevention and Regulation of Dark Patterns Guidelines* on **November 30, 2023**, classifying **13 distinct manipulation categories**.
+## Architecture and stack
 
-Despite this landmark regulation, Indian consumers have zero tools to detect these patterns in the apps and websites they use daily.
+- **Frontend:** React 19, Vite, Tailwind CSS, Framer Motion, Recharts.
+- **Backend:** Python and FastAPI.
+- **Vision model:** Google Gemini 2.0 Flash.
+- **Classification:** CCPA taxonomy and structured findings.
+- **Scoring:** weighted manipulation-intensity scoring.
 
-## 💡 Solution
+## Credibility safeguards
 
-DarkLens is a **forensic analysis engine** that:
+DarkLens is designed to favor visible evidence over assumptions. It avoids treating unselected radio buttons as selected, distinguishes legitimate upsells from unauthorized additions, and attaches evidence/confidence and legal references to findings where available.
 
-1. Ingests 1–3 checkout screenshots.
-2. Analyzes each using Google Gemini 2.0 Flash vision AI.
-3. Classifies findings against India's 13 CCPA dark pattern categories.
-4. Scores manipulation intensity using a weighted algorithm (0–100).
-5. Detects cross-screen manipulation when multiple screenshots are uploaded.
-6. Generates actionable insights with legal references.
+## Team and scope
 
-## 🏗️ System Architecture
+Team project: Vishesh Vandan, Adnan Ashraf, Jay Thakkar, and Koushik C. This README describes the shared system rather than implying sole authorship.
 
-```text
-User Interface
-React + Tailwind + Framer Motion
-        │
-        ▼
-FastAPI Backend
-        │
-        ├── Gemini Vision Analyzer
-        ├── CCPA Pattern Classifier
-        └── Manipulation Scoring Engine
-        │
-        ▼
-Google Gemini 2.0 Flash + CCPA Taxonomy
-```
-
-## 🔬 Technical Implementation
-
-### Backend Pipeline
-
-| Stage | Module | What It Does |
-|-------|--------|--------------|
-| Vision Analysis | `vision_analyzer.py` | Sends screenshots to Gemini and extracts structured findings. |
-| Pattern Classification | `pattern_classifier.py` | Maps findings to CCPA categories and validates severity. |
-| Manipulation Scoring | `pattern_classifier.py` | Calculates a weighted score from 0–100. |
-
-### Multi-Image Analysis
-
-The application accepts up to three screenshots and compares their results to identify changes such as price escalation, newly introduced fees, and repeated patterns across screens.
-
-## 🛡️ Credibility Safeguards
-
-DarkLens is designed to prioritize evidence over assumptions:
-
-- Pre-selected options are flagged only when a visible selection is present.
-- Unselected radio-button choices are not automatically treated as dark patterns.
-- Legitimate upsells are distinguished from unauthorized additions.
-- Findings include confidence levels and visual evidence.
-- Legal references are attached to detected categories.
-
-## 🛠️ Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Backend | Python, FastAPI |
-| AI Engine | Google Gemini 2.0 Flash |
-| Frontend | React 19, Vite |
-| Styling | Tailwind CSS, Custom CSS |
-| Animation | Framer Motion |
-| Icons | Lucide React |
-| Charts | Recharts |
-| Legal Data | CCPA taxonomy JSON |
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Python 3.11+
-- Node.js 20+
-- Gemini API key
-
-### Backend
-
-```bash
-cd backend
-pip install -r requirements.txt
-echo "GEMINI_API_KEY=your_key_here" > .env
-uvicorn main:app --reload --port 8000
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Open `http://localhost:5173` and upload a checkout screenshot.
-
-## 👥 Team
-
-Built at **Hack4Future 2025**, a 24-hour national-level hackathon.
-
-**Team Members:**
-
-- Vishesh Vandan @princevshetty-ui(https://github.com/princevshetty-ui)
-- Adnan Ashraf @adnan-ashraf055(https://github.com/adnan-ashraf055)
-- Jay Thakkar @thakkar2005(https://github.com/@thakkar2005)
-- Koushik C
-
-## 📜 SDG Alignment
-
-- **SDG 12** — Responsible Consumption and Production
-- **SDG 16** — Peace, Justice and Strong Institutions
-- **SDG 9** — Industry, Innovation and Infrastructure
-
-## 🏛️ Legal Basis
-
-DarkLens references India's **Prevention and Regulation of Dark Patterns Guidelines**, issued by the Central Consumer Protection Authority (CCPA).
-
-> DarkLens provides informational analysis, not legal advice.
-
----
-
-*DarkLens — Because transparency shouldn't be optional.*
+DarkLens is an informational analysis tool, not legal advice and not a substitute for human review.
